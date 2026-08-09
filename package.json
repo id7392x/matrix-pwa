@@ -10,7 +10,11 @@
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "prepare": "simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm run check && pnpm test && pnpm run lint"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -23,6 +27,7 @@
     "fake-indexeddb": "^6.2.5",
     "globals": "^17.9.0",
     "happy-dom": "^20.11.2",
+    "simple-git-hooks": "^2.13.1",
     "svelte": "^5.56.8",
     "svelte-check": "^4.7.3",
     "tailwindcss": "^4.3.3",
