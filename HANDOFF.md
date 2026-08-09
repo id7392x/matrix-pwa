@@ -47,7 +47,9 @@ PWA Matrix-клиент на Svelte 5 (Runes), TS `strict`, Dexie.js 4, Vitest. 
 - `RoomDto.lastEventText` не выводится (требует чтения `db.events` на комнату) — добавить с UI-превью.
 - `filters.ts` (lazy-фильтр) и `IMultiTabService` (handshake/ACK) — не реализованы.
 
-## Вероятные следующие шаги (см. `01-ARCHITECTURE.md` / `02-DATA-MODEL.md`)
+## Вероятные следующие шаги
+
+Подробная дорожная карта и ТЗ слайсов — в `docs/04-ROADMAP.md`. Кратко: следующий слайс — **UI на моках** (логин, комнаты, лента поверх `roomStore` + `batchedStore.events`), далее `LegacySyncProvider`, отправка сообщений, E2EE, multi-tab.
 
 1. **UI-слайс**: экраны на Svelte 5 Runes поверх `roomStore` + `batchedStore.events`: список комнат, лента сообщений, логин через `AccountManager` + `MockSyncProvider`.
 2. **LegacySyncProvider**: подключение реального `/sync` через `matrix-js-sdk` (адаптер сырых событий SDK → `SyncResponse`-совместимые типы), вызов `SyncOrchestrator.handleSync`.
