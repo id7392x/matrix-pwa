@@ -1,9 +1,22 @@
 import { liveQuery } from 'dexie'
 
 import { db, type RoomModel } from '$storage/db'
+import type { RoomDto } from '$types/dto'
+
+export function toRoomDto(model: RoomModel): RoomDto {
+  return {
+    id: model.roomId,
+    name: model.name ?? model.roomId,
+    avatarUrl: model.avatarUrl,
+    unreadCount: model.unreadCount,
+    highlightCount: model.highlightCount,
+    lastEventTs: model.lastEventTs,
+    isDirect: model.isDirect,
+  }
+}
 
 class RoomStore {
-  rooms = $state<RoomModel[]>([])
+  rooms = $state<RoomDto[]>([])
   loading = $state(false)
   error = $state<string | null>(null)
 
@@ -13,7 +26,7 @@ class RoomStore {
   constructor() {
     liveQuery(() => db.rooms.toArray()).subscribe({
       next: (rooms) => {
-        this.rooms = rooms
+        this.rooms = rooms.map(toRoomDto)
       },
       error: (error) => {
         this.error = String(error)
@@ -24,7 +37,7 @@ class RoomStore {
   async load(): Promise<void> {
     this.loading = true
     try {
-      this.rooms = await db.rooms.toArray()
+      this.rooms = (await db.rooms.toArray()).map(toRoomDto)
     } finally {
       this.loading = false
     }
