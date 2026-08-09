@@ -104,6 +104,7 @@
 - Адаптер: `matrix-js-sdk` события (`MatrixEvent`, `Room`) → сырые JSON-типы `SyncResponse`/`SyncRawEvent`/`SyncJoinedRoom` из `src/sync/ISyncProvider.ts`. Маппинг реальных полей (`m.room.name` state-событий, `m.direct` accountData) — ответственность провайдера.
 - `createClient` без crypto (crypto подключается в слайсе 4).
 - Авторизация: токен из `AccountManager.getAccessToken` (RAM/sessionStorage), в БД не попадает.
+- Первый импорт `matrix-js-sdk` обязан проходить в Vitest (при необходимости — тестовый shim/`vi.mock`). WASM/vodozemac на этом слайсе не задействуется (`initRustCrypto` только в слайсе 4); Vite-воркеры заранее не конфигурируем.
 
 ### 5.3. TDD-контракт
 

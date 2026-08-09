@@ -33,11 +33,11 @@
 - Критические индексы: `[userId+membership]`, `[userId+unreadCount]`, `lastEventTs`  
   
 events⁠  
- **PK:** ⁠eventId⁠ (строка)  
+ **PK:** ⁠[userId+roomId+eventId]⁠ (составной)  
  Важные поля: ⁠userId⁠, ⁠roomId⁠, ⁠originServerTs⁠, ⁠sender⁠, ⁠type⁠, ⁠content⁠ (уже расшифрованный), ⁠txnId?⁠, ⁠syncState⁠, ⁠isEncrypted⁠, ⁠decryptionError?⁠, ⁠prevBatchToken?⁠, ⁠isGapBlock?⁠  
  Критические индексы:  
  ⁠[userId+roomId+originServerTs]⁠ — основной для истории  
- ⁠[userId+roomId+txnId]⁠ — поиск оптимистичных сообщений  
+ ⁠[userId+txnId]⁠ — поиск оптимистичных сообщений  
  ⁠[userId+type]⁠  
 ⁠timelineGaps⁠** (Маркеры разрыва истории)**  
  **PK:** ⁠gapId⁠ (⁠${userId}:${roomId}:${eventId}⁠)  
@@ -45,7 +45,7 @@ events⁠
  Назначение: Фиксация мест разрыва ленты (например, после долговременного оффлайна) для корректной пагинации вверх через серверный ⁠/messages⁠.  
   
 #### `pendingEvents`  
-- **PK:** `txnId`  
+- **PK:** `userAndTxnId` = `${userId}:${txnId}` (`txnId` уникален в пределах пользователя)  
 - Важные поля: `userId`, `roomId`, `content`, `status` (`pending | sending | failed`), `createdAt`, `retryCount`, `errorText?`  
 - Индексы: `[userId+roomId]`, `status`, `createdAt`  
   
@@ -58,7 +58,7 @@ events⁠
 ### Обязательные правила  
 - Promote выполняется **только** внутри `db.transaction('rw', ...)`.  
 - Поддерживается dual-path: ответ `/send` **или** эхо из `/sync` с тем же `txnId`.  
-- Primary Key таблицы `events` всегда равен `eventId`. Мутация ключа запрещена.  
+- Primary Key таблицы `events` — составной `[userId+roomId+eventId]`. Ни ключ целиком, ни компонент `eventId` не мутируется.  
 - Операция должна быть идемпотентной.  
   
 ### Логика  
@@ -111,7 +111,7 @@ transaction {
   
 ## 6. Важные ограничения  
   
-1. Primary Key таблицы `events` — всегда `eventId`. Никакой мутации ключа.  
+1. Primary Key таблицы `events` — составной `[userId+roomId+eventId]`. Никакой мутации ключа или компонента `eventId`.  
 2. `txnId` генерируется клиентом и должен быть уникальным.  
 3. Все операции, меняющие связь pending ↔ synced, только внутри `db.transaction('rw', ...)`.  
 4. Чтение истории комнаты всегда идёт через индекс `[userId+roomId+originServerTs]`.  
