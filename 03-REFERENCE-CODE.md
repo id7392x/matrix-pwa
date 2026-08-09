@@ -82,7 +82,7 @@ import Dexie, { type Table } from 'dexie';
 export class AppDatabase extends Dexie {
   accounts!: Table<AccountModel, string>;
   rooms!: Table<RoomModel, string>;
-  events!: Table<EventModel, string>;
+  events!: Table<EventModel, [string, string, string]>;
   pendingEvents!: Table<PendingEventModel, string>;
   timelineGaps!: Table<TimelineGapModel, string>;
 
@@ -93,9 +93,10 @@ export class AppDatabase extends Dexie {
     this.version(1).stores({
       accounts: 'userId',
       rooms: 'userAndRoomId, [userId+membership], [userId+unreadCount], lastEventTs',
-      events: 'eventId, [userId+roomId+originServerTs], [userId+roomId+txnId], [userId+type]',
+      // Составной PK [userId+roomId+eventId]; индекс [userId+txnId] для поиска по транзакции
+      events: '[userId+roomId+eventId], [userId+roomId+originServerTs], [userId+txnId], [userId+type]',
       pendingEvents: 'userAndTxnId, [userId+roomId], status, createdAt',
-      timelineGaps: 'gapId, [userId+roomId]'
+      timelineGaps: 'gapId, [userId+roomId]',
     });
   }
 }

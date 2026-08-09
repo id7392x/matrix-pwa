@@ -1,52 +1,85 @@
-import Dexie, { type EntityTable } from 'dexie'
+import Dexie, { type EntityTable, type Table } from 'dexie'
 
-export interface AccountRecord {
-  id: number
-  userId: string
-  homeServer: string
+export type SyncState = 'pending' | 'sending' | 'synced' | 'failed'
+export type PendingStatus = 'pending' | 'sending' | 'failed'
+
+export interface AccountModel {
+  userId: string // PK
+  homeserver: string
   deviceId: string
+  isPrimary: boolean
+  lastSyncToken?: string
+  // accessToken ЗАПРЕЩЕНО хранить в этой модели (только RAM/sessionStorage)
 }
 
-export interface RoomRecord {
+export interface RoomModel {
+  userAndRoomId: string // PK: `${userId}:${roomId}`
+  userId: string
   roomId: string
-  name: string
-  avatarUrl: string
+  membership: 'join' | 'invite' | 'leave' | 'ban'
+  isDirect: boolean
   unreadCount: number
-  lastEventTimestamp: number
-  isEncrypted: boolean
+  highlightCount: number
+  lastEventTs: number
+  name?: string
+  avatarUrl?: string
+  summaryDto?: string
 }
 
-export type MessageStatus = 'pending' | 'synced' | 'failed'
-
-export interface MessageRecord {
+export interface EventModel {
   eventId: string
+  userId: string
   roomId: string
+  originServerTs: number
   sender: string
   type: string
-  content: string
-  timestamp: number
-  status: MessageStatus
+  content: Record<string, unknown> // Расшифрованный / подготовленный content
+  txnId?: string
+  syncState: SyncState
+  isEncrypted: boolean
+  decryptionError?: string
+  prevBatchToken?: string
+  isGapBlock?: boolean
 }
 
-export interface CryptoKeyRecord {
-  id: string
-  keyType: string
-  keyData: unknown
+export interface PendingEventModel {
+  userAndTxnId: string // PK: `${userId}:${txnId}`
+  txnId: string
+  userId: string
+  roomId: string
+  content: Record<string, unknown>
+  status: PendingStatus
+  createdAt: number
+  retryCount: number
+  errorText?: string
+}
+
+export interface TimelineGapModel {
+  gapId: string // PK: `${userId}:${roomId}:${eventId}`
+  userId: string
+  roomId: string
+  eventId: string
+  prevBatchToken: string
+  createdAt: number
 }
 
 export class AppDatabase extends Dexie {
-  accounts!: EntityTable<AccountRecord, 'id'>
-  rooms!: EntityTable<RoomRecord, 'roomId'>
-  messages!: EntityTable<MessageRecord, 'eventId'>
-  crypto_keys!: EntityTable<CryptoKeyRecord, 'id'>
+  accounts!: EntityTable<AccountModel, 'userId'>
+  rooms!: EntityTable<RoomModel, 'userAndRoomId'>
+  events!: Table<EventModel, [string, string, string]>
+  pendingEvents!: EntityTable<PendingEventModel, 'userAndTxnId'>
+  timelineGaps!: EntityTable<TimelineGapModel, 'gapId'>
 
   constructor() {
     super('MatrixClientDB')
+
+    // Единая статическая схема. Версионирование только через this.version(n)
     this.version(1).stores({
-      accounts: '++id, userId, homeServer, deviceId',
-      rooms: 'roomId, name, unreadCount, lastEventTimestamp, isEncrypted',
-      messages: 'eventId, roomId, sender, type, timestamp, status, [roomId+timestamp], [roomId+status]',
-      crypto_keys: 'id, keyType',
+      accounts: 'userId',
+      rooms: 'userAndRoomId, [userId+membership], [userId+unreadCount], lastEventTs',
+      events: '[userId+roomId+eventId], [userId+roomId+originServerTs], [userId+txnId], [userId+type]',
+      pendingEvents: 'userAndTxnId, [userId+roomId], status, createdAt',
+      timelineGaps: 'gapId, [userId+roomId]',
     })
   }
 }
