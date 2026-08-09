@@ -33,4 +33,5 @@
 - `pnpm run check` — svelte-check + tsc (линт/типы).
 - `pnpm run build` — production-сборка.
 - `pnpm dev` — dev-сервер. `pnpm preview` — предпросмотр сборки.
-- Vitest и eslint: скрипты `test` / `lint` появятся с установкой стека (шаг установки зависимостей Roadmap); до этого гейтом коммита служит `pnpm run check`.
+- `pnpm test` — Vitest (run); `pnpm test:watch` — watch. `pnpm run lint` — ESLint.
+- Гейт коммита: 100% зелёный `pnpm run check`, `pnpm test` и `pnpm run lint`.
