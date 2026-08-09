@@ -1,22 +1,22 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-09T17:43:45.628Z",
+  "generatedAt": "2026-08-09T18:04:14.184Z",
   "git": {
     "branch": "main",
-    "head": "c582197f60c091f09a65b04010dcb4d696917f25",
-    "headTime": "2026-08-09T23:41:04+06:00"
+    "head": "2553b8ebcadb24a7b3ac43c13c8d76f3ae3842a4",
+    "headTime": "2026-08-09T23:54:28+06:00"
   },
   "languages": {
-    "unknown": 16,
-    "Svelte": 1,
-    "TypeScript": 2,
-    "JavaScript": 1
+    "unknown": 21,
+    "JavaScript": 3,
+    "Svelte": 2,
+    "TypeScript": 3
   },
   "stats": {
-    "files": 20,
-    "symbols": 1,
-    "imports": 6,
-    "hashed": 20
+    "files": 29,
+    "symbols": 19,
+    "imports": 18,
+    "hashed": 29
   },
   "files": [
     {
@@ -64,7 +64,7 @@
     {
       "path": "AGENTS.md",
       "language": "unknown",
-      "hash": "c9c26ec29876432e762b25461a5ec4791f6c67da8f7f88bc9c966f08e7091bac",
+      "hash": "5ddb6123fa53cde6fb7e968694366e6bdca20c4f9a4148481b7ab6076738b8fb",
       "imports": [],
       "symbols": []
     },
@@ -73,6 +73,38 @@
       "language": "unknown",
       "hash": "2846a9d94ccb90e4ac8016686f7137ebb08480aed2e2f6f9f185a28ce0016469",
       "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "eslint.config.js",
+      "language": "JavaScript",
+      "hash": "8304f1f56d263e287645f1f9c971e788790b57bee384f2e30f06f983b5f6c809",
+      "imports": [
+        {
+          "specifier": "@eslint/js",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "725aee0014a95602b8804d74b4ce04b85f307e2540d6c50e2cb764fdf17fda3e"
+        },
+        {
+          "specifier": "eslint-plugin-svelte",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "a3ec3bc62fcda1f34309272ec90bc9f21f420ce746fcaed5ec8ef97de4c0cae8"
+        },
+        {
+          "specifier": "globals",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "274f2e9a4b40fb846cba14b3ed16cf9eed4822b124add2c907c05769848b26ba"
+        },
+        {
+          "specifier": "typescript-eslint",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "7a1dd87e37792c459325add46c343353a2d5dec3c3a103360b5a762d689b6d1c"
+        }
+      ],
       "symbols": []
     },
     {
@@ -85,14 +117,14 @@
     {
       "path": "package.json",
       "language": "unknown",
-      "hash": "1f655801f19d8797e94c9f6dc84a9ea835e0330c3448218cb1802da55b254613",
+      "hash": "6383dc7c5cd738580080898334c951586a14519135d9219f96982252f1897850",
       "imports": [],
       "symbols": []
     },
     {
       "path": "pnpm-lock.yaml",
       "language": "unknown",
-      "hash": "5e788fbe58375f1ee0df1e3970d02e9e58e42c373b1914c937a1b6da2b9692e0",
+      "hash": "8fc7c6e9024013129a093dfd3c0f12fef3f289f777260d8e6796a31722c57ba1",
       "imports": [],
       "symbols": []
     },
@@ -102,6 +134,135 @@
       "hash": "61bc9a161de58248288e6905425d7180f0624c2865007b97d763fdac12043a66",
       "imports": [],
       "symbols": []
+    },
+    {
+      "path": "scripts/repo-map.mjs",
+      "language": "JavaScript",
+      "hash": "7d6e59c13896a5f5d384b23c12a9f3d7de181a65fe5a2a551749d42c1f7bf640",
+      "imports": [
+        {
+          "specifier": "node:child_process",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "cb73900b85f7960ec7d7cc8c2c6e2f9ba200f6a476ec7e75b22fb83e3c6c5084"
+        },
+        {
+          "specifier": "node:crypto",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "879f6cbec570899393530798fa78b20fdf773dd54531a7e67225cbb739705f97"
+        },
+        {
+          "specifier": "node:fs",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "df6b52afbb9fbdc6597e9c164955472f3a281e7d8e8dca1ab390bfd6bfd4e079"
+        },
+        {
+          "specifier": "node:path",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "0e7d56ab70a4d4b1f3fcf92a49373c4cfa34ebd38ff42e2e7521b3dccd5b9fad"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "ROOT",
+          "kind": "constant",
+          "hash": "0bcd312c60e4560c6b9d768500f5992ad623e4bd20c7aa0d7ff8b72ef801bbe2",
+          "line": 8
+        },
+        {
+          "name": "MAP_PATH",
+          "kind": "constant",
+          "hash": "f7716c3cb3747031f083f9e8f0aed376b594e75a0fc0fba7b3551ce025310164",
+          "line": 9
+        },
+        {
+          "name": "CODE_EXT",
+          "kind": "constant",
+          "hash": "30c8d4d04fccb27d863403c521110f400334bb6c3a24312908127d59a0b1136d",
+          "line": 10
+        },
+        {
+          "name": "LANGS",
+          "kind": "constant",
+          "hash": "8c391e21aabaf0830ddc2f038281261b3b0bf0ad1d9b3bd6f859853d2f484ee0",
+          "line": 11
+        },
+        {
+          "name": "sh",
+          "kind": "function",
+          "hash": "54bb9434c4151bbc187d4904fd1ae3346aafad17151336e65e8ec5c290248bac",
+          "line": 13
+        },
+        {
+          "name": "hash",
+          "kind": "function",
+          "hash": "a78571e7e2cf7604b057382398827123b8c221c19897dcca3353032ea8c77c92",
+          "line": 14
+        },
+        {
+          "name": "trackedFiles",
+          "kind": "function",
+          "hash": "179e40bf38be1bef5449f8c3c06c41b412ab902fd4d4ebd87989ef0b3ba889ca",
+          "line": 16
+        },
+        {
+          "name": "parseFile",
+          "kind": "function",
+          "hash": "97fbfc0c8179a7583364651ea8b586524cdd899f0b3ce0dea351db72bf68b301",
+          "line": 22
+        },
+        {
+          "name": "resolveSpecifier",
+          "kind": "function",
+          "hash": "cd1c613c9a707ecf87bc705faedaa2aba8c1284aabaf2610374714d5b7638582",
+          "line": 66
+        },
+        {
+          "name": "gitMeta",
+          "kind": "function",
+          "hash": "d938de7e7c9c9c90292a931ac220bd9e60d6e25944aca9ffce37384c8211a5b2",
+          "line": 77
+        },
+        {
+          "name": "build",
+          "kind": "function",
+          "hash": "7918b63f78d3626c86a6ed66054bdff56e3dc7bac4bacbaee3efe2a11f400bb8",
+          "line": 85
+        },
+        {
+          "name": "validate",
+          "kind": "function",
+          "hash": "296aac8b86fa51a8fc40051553d3006b65b2b52011ece09495b4da72c71837b1",
+          "line": 98
+        },
+        {
+          "name": "status",
+          "kind": "function",
+          "hash": "153cf7fa2085bced0610a08733233d4867ef0446a306dfa6bb2bd2d285b27be5",
+          "line": 111
+        },
+        {
+          "name": "cmd",
+          "kind": "constant",
+          "hash": "e04c4c5a1f81be0209c9fa6f6e7ad2bad113e08e1288387bc10ed4bafe277801",
+          "line": 122
+        },
+        {
+          "name": "map",
+          "kind": "constant",
+          "hash": "c86251803a49a8f8fb65014a98b61579db73feccde95954d8b73e30a45cc17eb",
+          "line": 130
+        },
+        {
+          "name": "errors",
+          "kind": "constant",
+          "hash": "b0e5b641b2a05b946151a8816a4358004f83010060897541e40625f0371d79e3",
+          "line": 131
+        }
+      ]
     },
     {
       "path": "src/App.svelte",
@@ -120,8 +281,50 @@
     {
       "path": "src/app.css",
       "language": "unknown",
-      "hash": "29a458d154087dad1b1bbc8e6d5256bef23937174901bef4cfbfce60b3f6efd3",
+      "hash": "8cc83b2018e4ec43a4285e897d20db0a74680043820de3c1e29b13b6b5034bc2",
       "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "src/components/ui/GlassCard.svelte",
+      "language": "Svelte",
+      "hash": "fbcea5bbc0e84f802d7fcc1483375149e280aa43d6665d253d5058dd42d144f4",
+      "imports": [
+        {
+          "specifier": "svelte",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "c190acbb15784cad2ee03e1e5b8174b83ca8f175cdf51ee6f646804a34e2d8d4"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "{\n    class: className = '',\n    children,\n  }",
+          "kind": "constant",
+          "hash": "11933a7b87f1234c4e6bef25f276905c97a4d9e3e83e106aaa55404a4a9c174a",
+          "line": 4
+        }
+      ]
+    },
+    {
+      "path": "src/crypto/.gitkeep",
+      "language": "unknown",
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "src/lib/sample.test.ts",
+      "language": "TypeScript",
+      "hash": "e7c85c9043514ca992e1d792150131f66e1d00d88ce04f6626b7f90d973b07cd",
+      "imports": [
+        {
+          "specifier": "vitest",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "a9127f3d34365221cd20a3b712012600645aed15172d49c939fe39ebbb0474e5"
+        }
+      ],
       "symbols": []
     },
     {
@@ -158,6 +361,34 @@
       ]
     },
     {
+      "path": "src/storage/.gitkeep",
+      "language": "unknown",
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "src/stores/.gitkeep",
+      "language": "unknown",
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "src/sync/.gitkeep",
+      "language": "unknown",
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "src/types/.gitkeep",
+      "language": "unknown",
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "imports": [],
+      "symbols": []
+    },
+    {
       "path": "svelte.config.js",
       "language": "JavaScript",
       "hash": "044cf9cbd9198678af45787b34ee7c93fe9dd42b20fde1352ac87bbd07dc32b2",
@@ -167,7 +398,7 @@
     {
       "path": "tsconfig.app.json",
       "language": "unknown",
-      "hash": "a01cf7ee6ca3d384f3248ae2198e5ecb87d6a62c4164f288c395da36b7acb588",
+      "hash": "9debb7e86593be1e03a335f9a6d3216b590d39ebcd85420d4e7417624715bde6",
       "imports": [],
       "symbols": []
     },
@@ -188,22 +419,41 @@
     {
       "path": "vite.config.ts",
       "language": "TypeScript",
-      "hash": "a5fb25d253551543be4bc62b0337e83a4b0714f59b3a33c85745857af763aa34",
+      "hash": "7342deca66bbb1c1f0192694f2da16a8ba991d2994b2d0256399dbb70701ff3e",
       "imports": [
         {
-          "specifier": "vite",
+          "specifier": "node:url",
           "isInternal": false,
           "resolved": null,
-          "hash": "b16efac145e9242cfb05d739a8509ac7295f381108dce0f753e52a1aaf48e7a1"
+          "hash": "b54ed0787be5fb6c4e827d99ddc9ebe7219a39ad27ca794ac20bef46ad7e634e"
+        },
+        {
+          "specifier": "@tailwindcss/vite",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "6b7ae948ade2d0b27ddf6eef7f7b296e2df26b407b4fd338756b4c960e3be4ac"
         },
         {
           "specifier": "@sveltejs/vite-plugin-svelte",
           "isInternal": false,
           "resolved": null,
           "hash": "c77abb6b6e28420506539c24b819205a5af6adf5ccd1cbe253df6ebf9a64fa77"
+        },
+        {
+          "specifier": "vitest/config",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "fdecfa1138ecd6e222967d5c20a6bcdcabc7041cac4015bfd675c704925664d5"
         }
       ],
-      "symbols": []
+      "symbols": [
+        {
+          "name": "alias",
+          "kind": "constant",
+          "hash": "cf7ed7a1b4989025b4958da1c5390c3dc13b2540e2cfa0a1428fa69fbf1c78f1",
+          "line": 7
+        }
+      ]
     }
   ]
 }
