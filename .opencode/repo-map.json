@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-09T17:43:45.628Z",
+  "git": {
+    "branch": "main",
+    "head": "c582197f60c091f09a65b04010dcb4d696917f25",
+    "headTime": "2026-08-09T23:41:04+06:00"
+  },
+  "languages": {
+    "unknown": 16,
+    "Svelte": 1,
+    "TypeScript": 2,
+    "JavaScript": 1
+  },
+  "stats": {
+    "files": 20,
+    "symbols": 1,
+    "imports": 6,
+    "hashed": 20
+  },
+  "files": [
+    {
+      "path": ".gitignore",
+      "language": "unknown",
+      "hash": "fe718e7babb14f3cbad2d97f08889b9ce5215ed3fe0e43b2b8cfbfb3b9b844e8",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": ".vscode/extensions.json",
+      "language": "unknown",
+      "hash": "d7a544abf54e307549d089c775f179a5b454c97f2143846c80d3f93fa64984b9",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "00-PRINCIPLES.md",
+      "language": "unknown",
+      "hash": "b8d195f62ca90e1882a773293071a2c6dbbd40820c30db813502337abc8a4505",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "01-ARCHITECTURE.md",
+      "language": "unknown",
+      "hash": "9f979b7802dbc0f1a6f1207065bf6505279a9634505d7d9d021bc1939a119bcb",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "02-DATA-MODEL.md",
+      "language": "unknown",
+      "hash": "05c9c8cffec830d731b53dddcce7604d0a65a8b0fdc649d984b983bbf990169d",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "03-REFERENCE-CODE.md",
+      "language": "unknown",
+      "hash": "387995a2c485468a05ab9200c5f62f369ba8efe2d07bc0faf6fe1702465247f1",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "AGENTS.md",
+      "language": "unknown",
+      "hash": "c9c26ec29876432e762b25461a5ec4791f6c67da8f7f88bc9c966f08e7091bac",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "README.md",
+      "language": "unknown",
+      "hash": "2846a9d94ccb90e4ac8016686f7137ebb08480aed2e2f6f9f185a28ce0016469",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "index.html",
+      "language": "unknown",
+      "hash": "369b126dbfc0be9c905432cc37067716a10097f40c2dcda304028e89e2ba87aa",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "package.json",
+      "language": "unknown",
+      "hash": "1f655801f19d8797e94c9f6dc84a9ea835e0330c3448218cb1802da55b254613",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "language": "unknown",
+      "hash": "5e788fbe58375f1ee0df1e3970d02e9e58e42c373b1914c937a1b6da2b9692e0",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "public/favicon.svg",
+      "language": "unknown",
+      "hash": "61bc9a161de58248288e6905425d7180f0624c2865007b97d763fdac12043a66",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "src/App.svelte",
+      "language": "Svelte",
+      "hash": "4a069118cf1a2b1e3abbd3bc151806e957fef92c3a7b1aa672e255943c2ff35b",
+      "imports": [
+        {
+          "specifier": "./app.css",
+          "isInternal": true,
+          "resolved": "src/app.css",
+          "hash": "001f544e9b74192d8bdc00f28782c2889f6c1fcdc94c02949f95243b40654fb5"
+        }
+      ],
+      "symbols": []
+    },
+    {
+      "path": "src/app.css",
+      "language": "unknown",
+      "hash": "29a458d154087dad1b1bbc8e6d5256bef23937174901bef4cfbfce60b3f6efd3",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "src/main.ts",
+      "language": "TypeScript",
+      "hash": "b331ac03781178d50a9f39c513dbafa4cabebf94a111a9d9b2ac24f6afe7769b",
+      "imports": [
+        {
+          "specifier": "svelte",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "c190acbb15784cad2ee03e1e5b8174b83ca8f175cdf51ee6f646804a34e2d8d4"
+        },
+        {
+          "specifier": "./app.css",
+          "isInternal": true,
+          "resolved": "src/app.css",
+          "hash": "001f544e9b74192d8bdc00f28782c2889f6c1fcdc94c02949f95243b40654fb5"
+        },
+        {
+          "specifier": "./App.svelte",
+          "isInternal": true,
+          "resolved": "src/App.svelte",
+          "hash": "80a5a9b17868c24424ebc8b323440f89cdb91ca283d3baf17d832eeed52ab82f"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "app",
+          "kind": "constant",
+          "hash": "16af457539ee0e1e7265f8a6b113eda44b19a4ffcde4bae15d1ea4bcd087281d",
+          "line": 5
+        }
+      ]
+    },
+    {
+      "path": "svelte.config.js",
+      "language": "JavaScript",
+      "hash": "044cf9cbd9198678af45787b34ee7c93fe9dd42b20fde1352ac87bbd07dc32b2",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "tsconfig.app.json",
+      "language": "unknown",
+      "hash": "a01cf7ee6ca3d384f3248ae2198e5ecb87d6a62c4164f288c395da36b7acb588",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "tsconfig.json",
+      "language": "unknown",
+      "hash": "770b4140bbb581e2dfd9ea9946ffc9c75a1d86ba7d2db5f77c83e37cbdf9d808",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "tsconfig.node.json",
+      "language": "unknown",
+      "hash": "d366cc0827139db39c61815f22491bbfda56c654354a42ad7795143d314e45e8",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "vite.config.ts",
+      "language": "TypeScript",
+      "hash": "a5fb25d253551543be4bc62b0337e83a4b0714f59b3a33c85745857af763aa34",
+      "imports": [
+        {
+          "specifier": "vite",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "b16efac145e9242cfb05d739a8509ac7295f381108dce0f753e52a1aaf48e7a1"
+        },
+        {
+          "specifier": "@sveltejs/vite-plugin-svelte",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "c77abb6b6e28420506539c24b819205a5af6adf5ccd1cbe253df6ebf9a64fa77"
+        }
+      ],
+      "symbols": []
+    }
+  ]
+}
