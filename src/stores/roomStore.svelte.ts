@@ -1,17 +1,17 @@
 import { liveQuery } from 'dexie'
 
-import { db, type RoomRecord } from '$storage/db'
+import { db, type RoomModel } from '$storage/db'
 
 class RoomStore {
-  rooms = $state<RoomRecord[]>([])
+  rooms = $state<RoomModel[]>([])
   loading = $state(false)
   error = $state<string | null>(null)
 
-  sortedRooms = $derived([...this.rooms].sort((a, b) => b.lastEventTimestamp - a.lastEventTimestamp))
+  sortedRooms = $derived([...this.rooms].sort((a, b) => b.lastEventTs - a.lastEventTs))
   totalUnread = $derived(this.rooms.reduce((acc, room) => acc + room.unreadCount, 0))
 
   constructor() {
-    liveQuery(() => db.rooms.orderBy('lastEventTimestamp').reverse().toArray()).subscribe({
+    liveQuery(() => db.rooms.toArray()).subscribe({
       next: (rooms) => {
         this.rooms = rooms
       },
@@ -30,12 +30,12 @@ class RoomStore {
     }
   }
 
-  async upsert(room: RoomRecord): Promise<void> {
+  async upsert(room: RoomModel): Promise<void> {
     await db.rooms.put(room)
   }
 
-  async updateUnread(roomId: string, unreadCount: number): Promise<void> {
-    await db.rooms.update(roomId, { unreadCount })
+  async updateUnread(userAndRoomId: string, unreadCount: number): Promise<void> {
+    await db.rooms.update(userAndRoomId, { unreadCount })
   }
 
   reset(): void {
