@@ -1,10 +1,27 @@
 <script lang="ts">
-  import './app.css';
+  import LoginScreen from '$components/LoginScreen.svelte'
+  import RoomList from '$components/RoomList.svelte'
+  import Timeline from '$components/Timeline.svelte'
+  import { uiStore } from '$stores/uiStore.svelte'
+
+  uiStore.init()
+
+  const screen = $derived(uiStore.screen)
 </script>
 
-<main class="app-container">
-  <h1>Matrix Client Target Skeleton</h1>
-</main>
-
-<style>
-</style>
+{#if screen.name === 'login'}
+  <main class="flex h-screen items-center justify-center p-4">
+    <LoginScreen />
+  </main>
+{:else if screen.name === 'rooms'}
+  <main class="h-screen">
+    <RoomList />
+  </main>
+{:else}
+  <main class="flex h-screen">
+    <section class="hidden w-80 border-r border-[var(--glass-border)] md:block">
+      <RoomList />
+    </section>
+    <Timeline roomId={screen.roomId} />
+  </main>
+{/if}

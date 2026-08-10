@@ -37,9 +37,16 @@ export class BatchedStoreManager {
     this.buffer = []
   }
 
+  resetBuffer(): void {
+    this.buffer = []
+    this.scheduled = false
+  }
+
   reset(): void {
     this.buffer = []
     this.scheduled = false
     this.events = []
   }
 }
+
+export const batchedStore = new BatchedStoreManager()
