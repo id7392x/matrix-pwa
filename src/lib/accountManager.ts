@@ -25,3 +25,5 @@ export class AccountManager {
     sessionStorage.setItem(TOKEN_KEY(userId), token)
   }
 }
+
+export const accountManager = new AccountManager()

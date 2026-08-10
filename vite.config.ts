@@ -19,6 +19,7 @@ export default defineConfig({
   plugins: [svelte(), tailwindcss()],
   resolve: {
     alias,
+    conditions: ['browser'],
   },
   test: {
     environment: 'happy-dom',
