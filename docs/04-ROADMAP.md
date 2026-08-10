@@ -22,14 +22,15 @@
 
 | Слайс | Коммиты | Что сделано |
 |---|---|---|
-| Stage 0 — инфраструктура | `2553b8e`, `c582197`, `1d3e4fe` | TS strict, алиасы `$lib/$storage/...`, Vitest, Tailwind glassmorphism, AGENTS.md guardrails |
-| Хранилище (схема + promote) | `d386b44`, `1b48ac8` | Dexie-схема с составными PK, `promotePendingToSynced`, `webLock.withLock`, room store |
-| Доменный слой синхронизации | `92ae649` | `ISyncProvider`+мок, `SyncOrchestrator`, `PendingQueueService`, `BatchedStoreManager`, `AccountManager`, DTO-типы, `matrix-js-sdk` |
-| DTO-граница комнат | `30d777f` | `roomStore` отдаёт UI только `RoomDto` (`toRoomDto`) |
+| Stage 0 — инфраструктура | `a033cc9`, `2eb8f02`, `633194d` | TS strict, алиасы `$lib/$storage/...`, Vitest, Tailwind glassmorphism, AGENTS.md guardrails |
+| Хранилище (схема + promote) | `a0b1a58`, `098c8a5` | Dexie-схема с составными PK, `promotePendingToSynced`, `webLock.withLock`, room store |
+| Доменный слой синхронизации | `629c6f4` | `ISyncProvider`+мок, `SyncOrchestrator`, `PendingQueueService`, `BatchedStoreManager`, `AccountManager`, DTO-типы, `matrix-js-sdk` |
+| DTO-граница комнат | `6420734` | `roomStore` отдаёт UI только `RoomDto` (`toRoomDto`) |
+| Слайс 1 — UI на моках | `57ddc4c` | `uiStore` (hash-навигация), `LoginScreen`, `RoomList`/`RoomListItem`, `Timeline`/`TimelineItem`, `App.svelte`, demo-sync `startDemoSync` |
 
 ### Текущее состояние проверок
 
-`pnpm run check` — 0 errors, `pnpm test` — 50/50, `pnpm run lint` — clean.
+`pnpm run check` — 0 errors, `pnpm test` — 64/64, `pnpm run lint` — clean.
 
 ---
 
@@ -37,8 +38,8 @@
 
 | # | Слайс | Зависимости | Статус |
 |---|---|---|---|
-| 1 | UI на моках (логин, комнаты, лента) | доменный слой, `RoomDto`-граница | **следующий** |
-| 2 | `LegacySyncProvider` (реальный `/sync`) | слайс 1 | запланирован |
+| 1 | UI на моках (логин, комнаты, лента) | доменный слой, `RoomDto`-граница | **выполнен** |
+| 2 | `LegacySyncProvider` (реальный `/sync`) | слайс 1 | **следующий** |
 | 3 | Отправка сообщений (`/send` + dual-path) | слайсы 1–2 | запланирован |
 | 4 | E2EE Cold Start + re-decryption | слайс 2 | запланирован |
 | 5 | История, пагинация, retention, медиа-кэш | слайсы 2–3 | запланирован |

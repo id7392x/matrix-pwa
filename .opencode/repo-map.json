@@ -1,28 +1,28 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-09T19:24:45.397Z",
+  "generatedAt": "2026-08-10T11:16:51.918Z",
   "git": {
     "branch": "main",
-    "head": "f9eb084c63e93a9efaee89b62aece7fef3f358ff",
-    "headTime": "2026-08-10T01:24:26+06:00"
+    "head": "57ddc4c6cb53f6bd8987c140bc9a5901f16fc797",
+    "headTime": "2026-08-10T17:15:33+06:00"
   },
   "languages": {
-    "unknown": 23,
+    "unknown": 25,
     "JavaScript": 3,
-    "Svelte": 2,
-    "TypeScript": 23
+    "Svelte": 7,
+    "TypeScript": 31
   },
   "stats": {
-    "files": 51,
-    "symbols": 71,
-    "imports": 65,
-    "hashed": 51
+    "files": 66,
+    "symbols": 94,
+    "imports": 108,
+    "hashed": 66
   },
   "files": [
     {
       "path": ".gitignore",
       "language": "unknown",
-      "hash": "fe718e7babb14f3cbad2d97f08889b9ce5215ed3fe0e43b2b8cfbfb3b9b844e8",
+      "hash": "1a09824f5a002adef881d8da0a2f0a8f4360df511abf317c87009a0f95f24d7a",
       "imports": [],
       "symbols": []
     },
@@ -36,14 +36,21 @@
     {
       "path": "AGENTS.md",
       "language": "unknown",
-      "hash": "c3d338e3c47ad05ad9f1b6b9042704073775309da3ba5ef89d95e1fe730113b1",
+      "hash": "67d0c3f6668404677935236702b7e57e5c2111b1e8da9ff71220756123586852",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "COMMITS.md",
+      "language": "unknown",
+      "hash": "3dee78ea8d0263d76f4396236d377c4482cd4861622872306bbdf86e9072d354",
       "imports": [],
       "symbols": []
     },
     {
       "path": "HANDOFF.md",
       "language": "unknown",
-      "hash": "ebbc529ea2850d716b74fc78eeab5c12a62c39b1b18ec036e0a344f031a01ba9",
+      "hash": "006097bef3508bddc9e25bdada443ec6db84624f6dd9b44d75266af83ab3901c",
       "imports": [],
       "symbols": []
     },
@@ -57,35 +64,35 @@
     {
       "path": "docs/00-PRINCIPLES.md",
       "language": "unknown",
-      "hash": "b8d195f62ca90e1882a773293071a2c6dbbd40820c30db813502337abc8a4505",
+      "hash": "24a51b86fb06b1257393835941387f179e09c5614eb5f312a7755676a28cbffd",
       "imports": [],
       "symbols": []
     },
     {
       "path": "docs/01-ARCHITECTURE.md",
       "language": "unknown",
-      "hash": "9f979b7802dbc0f1a6f1207065bf6505279a9634505d7d9d021bc1939a119bcb",
+      "hash": "1fe3f819692ed91c04e4a0909f20e5b4f56150055ec6496dff74f0b7021d31d9",
       "imports": [],
       "symbols": []
     },
     {
       "path": "docs/02-DATA-MODEL.md",
       "language": "unknown",
-      "hash": "05c9c8cffec830d731b53dddcce7604d0a65a8b0fdc649d984b983bbf990169d",
+      "hash": "ce2e145b7ee42ccb0b3a0d45b43b7417cd0942b94b7f61e6c4196a688b560ddd",
       "imports": [],
       "symbols": []
     },
     {
       "path": "docs/03-REFERENCE-CODE.md",
       "language": "unknown",
-      "hash": "4e1cb6e98f66efee958b2390a71cff326a7d27552f03d9a867352416af126fd3",
+      "hash": "fab4422b599be94540ee34686bd62a702f1de72888799865bdec141691bd7c7a",
       "imports": [],
       "symbols": []
     },
     {
       "path": "docs/04-ROADMAP.md",
       "language": "unknown",
-      "hash": "1510fb63f8479668a952727443be90d0a942f4c08b17195eee77834a3023991a",
+      "hash": "140fa69f7c316a56796d4b74e14c2c3b752959aa27d094e4f58e95e2d8e033bc",
       "imports": [],
       "symbols": []
     },
@@ -131,14 +138,21 @@
     {
       "path": "package.json",
       "language": "unknown",
-      "hash": "a46875e856754b96cf78e1f4b69767281e4c8ebe7ce5df6694efcc789b95ee6d",
+      "hash": "c14fccc30a67ae0791840b9a10ed8f4ef5d4b430234ef388eae63ef85fcb248f",
       "imports": [],
       "symbols": []
     },
     {
       "path": "pnpm-lock.yaml",
       "language": "unknown",
-      "hash": "525dbe4c44ab73f679782968c2aa8c5908f02f2535a1a1ced107a701aacb1b72",
+      "hash": "058526a43c895e924837dd8c016453d50430caf276a5cec75089695ae19e0788",
+      "imports": [],
+      "symbols": []
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "language": "unknown",
+      "hash": "5cb228ca891fda345196a5c394e6d3e7b6a41673b489306d83879b6f7f34a453",
       "imports": [],
       "symbols": []
     },
@@ -281,16 +295,41 @@
     {
       "path": "src/App.svelte",
       "language": "Svelte",
-      "hash": "4a069118cf1a2b1e3abbd3bc151806e957fef92c3a7b1aa672e255943c2ff35b",
+      "hash": "820e64858c789bf9f72374f5b1f56ce7e0dba9670825889b2ce9bc5684a14838",
       "imports": [
         {
-          "specifier": "./app.css",
+          "specifier": "$components/LoginScreen.svelte",
           "isInternal": true,
-          "resolved": "src/app.css",
-          "hash": "001f544e9b74192d8bdc00f28782c2889f6c1fcdc94c02949f95243b40654fb5"
+          "resolved": null,
+          "hash": "b7804cee000872308386bfda8f017e0e54bb9dd630ee7b3acf76615cd59f9177"
+        },
+        {
+          "specifier": "$components/RoomList.svelte",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "adeb1695cd4d43f84cdd19707794336f17caf28156b6ebf8e36d8c28af9927d0"
+        },
+        {
+          "specifier": "$components/Timeline.svelte",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "cd0c187a77d2fd81ea4a4e085e7c5fa96d3ce658282bf9dd7df72f7b94d6f42b"
+        },
+        {
+          "specifier": "$stores/uiStore.svelte",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "755e6095e004c1fd3f91f61b1885b8b1ce331d0ac15d3aac3ba98378a21040e5"
         }
       ],
-      "symbols": []
+      "symbols": [
+        {
+          "name": "screen",
+          "kind": "constant",
+          "hash": "0a712bd81bd8389a6d35f1c808108e4f8bdf4924464a4213a16a71be6f686cc0",
+          "line": 9
+        }
+      ]
     },
     {
       "path": "src/app.css",
@@ -298,6 +337,277 @@
       "hash": "8cc83b2018e4ec43a4285e897d20db0a74680043820de3c1e29b13b6b5034bc2",
       "imports": [],
       "symbols": []
+    },
+    {
+      "path": "src/components/LoginScreen.svelte",
+      "language": "Svelte",
+      "hash": "0e3079d37061c404e8fe68c6c55830310df4105cf4421b2974c2d46e294a034c",
+      "imports": [
+        {
+          "specifier": "$lib/accountManager",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "20f41de96fce393b9437e5a602e70a35fdbedfaf1a1487ac409afe0f9520e62d"
+        },
+        {
+          "specifier": "$lib/demoSync",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "6fcc3e6234f27b6e475baa5baf843986013443e6b3c2198479844ae21a2aa257"
+        },
+        {
+          "specifier": "$stores/authStore.svelte",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "e93f1dceff5f3dfb746f18431a707286accba88d0b679d69aaa767e60c8d0f60"
+        },
+        {
+          "specifier": "$stores/uiStore.svelte",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "755e6095e004c1fd3f91f61b1885b8b1ce331d0ac15d3aac3ba98378a21040e5"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "homeserver",
+          "kind": "variable",
+          "hash": "b468a7326d9582fea407e98a8960eb1ab27e381022c236d5b13068f7586b9e7b",
+          "line": 7
+        },
+        {
+          "name": "userId",
+          "kind": "variable",
+          "hash": "2c1faa273e41a87a04cbd1195368048715344dc71da9e37cc433bf91415dbf11",
+          "line": 8
+        },
+        {
+          "name": "deviceId",
+          "kind": "variable",
+          "hash": "1d7c77236b281d18139e35abe4cdc7fb4cb4b31801fb84ec6ff46ab765397e3d",
+          "line": 9
+        },
+        {
+          "name": "accessToken",
+          "kind": "variable",
+          "hash": "2162741002b17570e6faf62d3ca5c23e415b657754cd23305fa07ee21bfdccac",
+          "line": 10
+        },
+        {
+          "name": "error",
+          "kind": "variable",
+          "hash": "0535eb8c106814c8593b23a22c8105c8239e5c7a533ed5dc64b8d2a402578975",
+          "line": 11
+        },
+        {
+          "name": "handleSubmit",
+          "kind": "function",
+          "hash": "2bd07858e543e66e6cf4d7effab4aef22dbd190204a06b74ca7ed5876792a528",
+          "line": 13
+        }
+      ]
+    },
+    {
+      "path": "src/components/LoginScreen.test.ts",
+      "language": "TypeScript",
+      "hash": "14e0cedad9207312e1aa700d779f9e285fa6a3c0b23187460ccda9d0ce46e1f3",
+      "imports": [
+        {
+          "specifier": "fake-indexeddb/auto",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "bb43f37a31f1280193cc7929799d1bb9f9806c5b8564c37a298bab9628bac091"
+        },
+        {
+          "specifier": "vitest",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "a9127f3d34365221cd20a3b712012600645aed15172d49c939fe39ebbb0474e5"
+        },
+        {
+          "specifier": "svelte",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "c190acbb15784cad2ee03e1e5b8174b83ca8f175cdf51ee6f646804a34e2d8d4"
+        },
+        {
+          "specifier": "$components/LoginScreen.svelte",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "b7804cee000872308386bfda8f017e0e54bb9dd630ee7b3acf76615cd59f9177"
+        },
+        {
+          "specifier": "$lib/accountManager",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "20f41de96fce393b9437e5a602e70a35fdbedfaf1a1487ac409afe0f9520e62d"
+        },
+        {
+          "specifier": "$stores/uiStore.svelte",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "755e6095e004c1fd3f91f61b1885b8b1ce331d0ac15d3aac3ba98378a21040e5"
+        }
+      ],
+      "symbols": []
+    },
+    {
+      "path": "src/components/RoomList.svelte",
+      "language": "Svelte",
+      "hash": "4ace45007ea951dfd4820cc78be58030de01f8b0f9dad56e6e5dd7e2985a3f01",
+      "imports": [
+        {
+          "specifier": "$stores/roomStore.svelte",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "13237abcf3f68ea4bf2b7e9e889f736c3a0d0daf5ea1c00a868ca49f93d65edd"
+        },
+        {
+          "specifier": "$stores/uiStore.svelte",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "755e6095e004c1fd3f91f61b1885b8b1ce331d0ac15d3aac3ba98378a21040e5"
+        },
+        {
+          "specifier": "./RoomListItem.svelte",
+          "isInternal": true,
+          "resolved": "src/components/RoomListItem.svelte",
+          "hash": "f06b5a576649e498b582063ccc0e22208e132e693e565e9477eaab3f985a060a"
+        }
+      ],
+      "symbols": []
+    },
+    {
+      "path": "src/components/RoomListItem.svelte",
+      "language": "Svelte",
+      "hash": "f8a2019f9421cc5b32f379ce6db7f6db5defc9ec450d376b43e01bb1dab1d60f",
+      "imports": [
+        {
+          "specifier": "$lib/format",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "4461cd9c6fc286ffe2458cf116fbb0266eb11957f6d8dd4f98e928bb83c3120c"
+        },
+        {
+          "specifier": "$types/dto",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "b3fd9c285df258d3aededa1ba4a4375115c8452e3c11b7369c8c0fc425880119"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "{ room, onSelect }",
+          "kind": "constant",
+          "hash": "4ab6b4e088861bd9336961ee8645dd89b4d9fb2b5f9135096d029e620b4aee7e",
+          "line": 5
+        }
+      ]
+    },
+    {
+      "path": "src/components/Timeline.svelte",
+      "language": "Svelte",
+      "hash": "094f793dd4bf466e2ddc0fa9b407692202297896ed5b5ee44857323bf50527ca",
+      "imports": [
+        {
+          "specifier": "$stores/batchedStore.svelte",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "f66fce135aa6f57715c7ec6bc46e19aed8fa2e0e2acbbeb302bfcea7b8730691"
+        },
+        {
+          "specifier": "./TimelineItem.svelte",
+          "isInternal": true,
+          "resolved": "src/components/TimelineItem.svelte",
+          "hash": "bc686c7029feecfe8cb3119bb763a174792bccb28bc3399b9bbaa938c8d86733"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "{ roomId }",
+          "kind": "constant",
+          "hash": "3f76f12bc626b88867d6ef7a2e32bb34cc0aea37be6180a048afb15232810811",
+          "line": 6
+        },
+        {
+          "name": "events",
+          "kind": "constant",
+          "hash": "bd68594d7aa0d86dbfc76d3438fc1d67b037a3195893ad4e8e363a28c52cd6cd",
+          "line": 8
+        }
+      ]
+    },
+    {
+      "path": "src/components/TimelineItem.svelte",
+      "language": "Svelte",
+      "hash": "215ed20116d69ed7fb45bcb313b98965d12365715e0d0324f06a18166d1f9de7",
+      "imports": [
+        {
+          "specifier": "$types/dto",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "b3fd9c285df258d3aededa1ba4a4375115c8452e3c11b7369c8c0fc425880119"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "{ event }",
+          "kind": "constant",
+          "hash": "d89fee15f03c25d74193f1a7d9643d0212d795bb46e1095b83de833ba3b4229b",
+          "line": 4
+        },
+        {
+          "name": "statusLabel",
+          "kind": "constant",
+          "hash": "2ea414b87905751469e809b70b72890847e9b1d1512fb393ba9092cecf2d2d33",
+          "line": 6
+        }
+      ]
+    },
+    {
+      "path": "src/components/TimelineItem.test.ts",
+      "language": "TypeScript",
+      "hash": "74848d6dd67fc3673eddc5ad6a5c2f9decf19f22471f5dec0c59df3d143b3cb8",
+      "imports": [
+        {
+          "specifier": "vitest",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "a9127f3d34365221cd20a3b712012600645aed15172d49c939fe39ebbb0474e5"
+        },
+        {
+          "specifier": "svelte",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "c190acbb15784cad2ee03e1e5b8174b83ca8f175cdf51ee6f646804a34e2d8d4"
+        },
+        {
+          "specifier": "$components/TimelineItem.svelte",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "1ef107c6407cecd80b255c2ff95c33ceede6d3ad429f718d75facda946f1f1e2"
+        },
+        {
+          "specifier": "$types/dto",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "b3fd9c285df258d3aededa1ba4a4375115c8452e3c11b7369c8c0fc425880119"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "evt",
+          "kind": "function",
+          "hash": "6ab97e62fc09063e8fa7fc0f0f7a49d35c5a0e41c506dff2bc276bc71d9371a2",
+          "line": 7
+        },
+        {
+          "name": "render",
+          "kind": "function",
+          "hash": "43070e03638bf765dcada5c91953e2775fa0e5847e3e78f189e403ef0003ea2d",
+          "line": 21
+        }
+      ]
     },
     {
       "path": "src/components/ui/GlassCard.svelte",
@@ -381,7 +691,7 @@
     {
       "path": "src/lib/accountManager.ts",
       "language": "TypeScript",
-      "hash": "297ea4ffeccf4893fbb5cdd148eafade82d80bbe739a21c86a751fc35f5f8d94",
+      "hash": "8bca3f649776ee5ea9a967ac4a721f4d3b566d6c6a08229d45289798a34c6bd4",
       "imports": [
         {
           "specifier": "$storage/db",
@@ -402,6 +712,135 @@
           "kind": "class",
           "hash": "7dcb1eb6816232e88ffbaf0abf914536f8dad0afe659872f181f70c23979629d",
           "line": 5
+        }
+      ]
+    },
+    {
+      "path": "src/lib/demoSync.test.ts",
+      "language": "TypeScript",
+      "hash": "d66c7de8733269829e571dc9daebab7c352bcf47e26d481ed703433c51a56652",
+      "imports": [
+        {
+          "specifier": "fake-indexeddb/auto",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "bb43f37a31f1280193cc7929799d1bb9f9806c5b8564c37a298bab9628bac091"
+        },
+        {
+          "specifier": "vitest",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "a9127f3d34365221cd20a3b712012600645aed15172d49c939fe39ebbb0474e5"
+        },
+        {
+          "specifier": "$lib/demoSync",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "6fcc3e6234f27b6e475baa5baf843986013443e6b3c2198479844ae21a2aa257"
+        },
+        {
+          "specifier": "$storage/db",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "c4601f9fcf510fa44209f9992ba721937427cf8391aa0f5d1e8ab5b9359a5900"
+        },
+        {
+          "specifier": "$stores/batchedStore.svelte",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "f66fce135aa6f57715c7ec6bc46e19aed8fa2e0e2acbbeb302bfcea7b8730691"
+        },
+        {
+          "specifier": "$stores/roomStore.svelte",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "13237abcf3f68ea4bf2b7e9e889f736c3a0d0daf5ea1c00a868ca49f93d65edd"
+        }
+      ],
+      "symbols": []
+    },
+    {
+      "path": "src/lib/demoSync.ts",
+      "language": "TypeScript",
+      "hash": "d69b7a6fcc779bb22b1d361741cca91ca2c7ad7d8ad0c3ed5e95e56490c223f9",
+      "imports": [
+        {
+          "specifier": "$stores/batchedStore.svelte",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "f66fce135aa6f57715c7ec6bc46e19aed8fa2e0e2acbbeb302bfcea7b8730691"
+        },
+        {
+          "specifier": "$sync/ISyncProvider",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "a9bd79332c78f0a24539db7e79da71721adfd029900f197b0a6d67961c5bf46a"
+        },
+        {
+          "specifier": "$sync/mockSyncProvider",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "6882a4a06ad3f33901c134845f2d1531780c67ae1f76e675d6ef41de49537656"
+        },
+        {
+          "specifier": "$sync/PendingQueueService",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "1643b862cca6eebe96e72384d15dfb0c5964d8a63026018286d3afb2e66eca9e"
+        },
+        {
+          "specifier": "$sync/SyncOrchestrator",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "922ebcdc8ce0a6cd5d7afeed1bc5731d2099be4adfdfcd7b5772e38df1fc1483"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "demoFixtures",
+          "kind": "function",
+          "hash": "b3da611455986e09a5601e4540f865ec6a516cd94a99b75542d3d39b0d39b9f3",
+          "line": 7
+        },
+        {
+          "name": "startDemoSync",
+          "kind": "function",
+          "hash": "966e15055b8826c85479acf2e017cd800ea427303d2ae50da2029e0d2bbb455d",
+          "line": 59
+        }
+      ]
+    },
+    {
+      "path": "src/lib/format.test.ts",
+      "language": "TypeScript",
+      "hash": "b66b03a8e8e93b13ff7e28326ecac10c83a979530cd5be5a2cdae69e17765dec",
+      "imports": [
+        {
+          "specifier": "vitest",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "a9127f3d34365221cd20a3b712012600645aed15172d49c939fe39ebbb0474e5"
+        },
+        {
+          "specifier": "$lib/format",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "4461cd9c6fc286ffe2458cf116fbb0266eb11957f6d8dd4f98e928bb83c3120c"
+        }
+      ],
+      "symbols": []
+    },
+    {
+      "path": "src/lib/format.ts",
+      "language": "TypeScript",
+      "hash": "363e5ccb954b360eb039866fb27f926b4483de793ce53d8f5d5c92b382cb49cb",
+      "imports": [],
+      "symbols": [
+        {
+          "name": "formatLastEventTs",
+          "kind": "function",
+          "hash": "312816908089cdea11bbf8efbb790c01fa144c9d0a3ff211fe57ad0d4734e495",
+          "line": 1
         }
       ]
     },
@@ -741,7 +1180,7 @@
     {
       "path": "src/stores/batchedStore.svelte.ts",
       "language": "TypeScript",
-      "hash": "cce5b71778e4744301cc631c776be9653f9bcb65d89c8711b927ea43c603f529",
+      "hash": "b27c139a829e1a3701265db01cfc41309dcf7c70e5bae1c367b384fa9ff64aa2",
       "imports": [
         {
           "specifier": "$types/dto",
@@ -766,7 +1205,7 @@
         {
           "name": "BatchedStoreManager",
           "kind": "class",
-          "hash": "3a116145ef1ea5f39c610dc42002d5454f5a80ee99b5ef569653b2c8f9c8ba66",
+          "hash": "20c11f781c03e855ee4c75910e029782b4ab42ac0eb98349d7bcb5afaf1e6d81",
           "line": 14
         }
       ]
@@ -858,6 +1297,90 @@
           "kind": "constant",
           "hash": "18f79f14cb39fad7eef0c8b67edd22fcd6255ca55c917b213acd807a24c9e583",
           "line": 11
+        }
+      ]
+    },
+    {
+      "path": "src/stores/uiStore.svelte.test.ts",
+      "language": "TypeScript",
+      "hash": "f41b45308d45b818b0a0eb938d76faa3527fa803e59fba4a3bffcc4dbfa81bad",
+      "imports": [
+        {
+          "specifier": "vitest",
+          "isInternal": false,
+          "resolved": null,
+          "hash": "a9127f3d34365221cd20a3b712012600645aed15172d49c939fe39ebbb0474e5"
+        },
+        {
+          "specifier": "$stores/batchedStore.svelte",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "f66fce135aa6f57715c7ec6bc46e19aed8fa2e0e2acbbeb302bfcea7b8730691"
+        },
+        {
+          "specifier": "$stores/uiStore.svelte",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "755e6095e004c1fd3f91f61b1885b8b1ce331d0ac15d3aac3ba98378a21040e5"
+        },
+        {
+          "specifier": "$types/dto",
+          "isInternal": true,
+          "resolved": null,
+          "hash": "b3fd9c285df258d3aededa1ba4a4375115c8452e3c11b7369c8c0fc425880119"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "evt",
+          "kind": "function",
+          "hash": "3497c750dfa261784448abf17e457a83f1f1d79cdbcb687d37cf68e08d1375da",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "path": "src/stores/uiStore.svelte.ts",
+      "language": "TypeScript",
+      "hash": "d426797a3e421f8788a391ebb4942bbfbcfada72b320d20865d4bcc9ae0079c7",
+      "imports": [
+        {
+          "specifier": "./batchedStore.svelte",
+          "isInternal": true,
+          "resolved": "src/stores/batchedStore.svelte.ts",
+          "hash": "39db576b4a7b5726cfd97b93e4545b66254175cffe9265b54f1a203763eff501"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "UiScreen",
+          "kind": "struct",
+          "hash": "6eb8a107ff61e88673e09cc9055cf1dcb84be058ddbe1e17c932dd10080472b5",
+          "line": 3
+        },
+        {
+          "name": "LOGIN_HASH",
+          "kind": "constant",
+          "hash": "c265a8ce670d72e4b47b859eb7d0019002c2ec73a756b6fe1dd1d7e7e3acd0cd",
+          "line": 5
+        },
+        {
+          "name": "ROOMS_HASH",
+          "kind": "constant",
+          "hash": "2503be89f7a2e6ea157b9912e93f9b16fc80cb704ad62db5d16a878411a45514",
+          "line": 6
+        },
+        {
+          "name": "screenFromHash",
+          "kind": "function",
+          "hash": "a63fc6a7209b6bf9cf127339d5729bd5c2f1d4da544cf9f116b079b8aca8d20e",
+          "line": 8
+        },
+        {
+          "name": "UiStore",
+          "kind": "class",
+          "hash": "9d23e2a15a0c4e76772cba9679005b8f824abc8b286ceeb18668395012909488",
+          "line": 17
         }
       ]
     },
@@ -1202,7 +1725,7 @@
     {
       "path": "vite.config.ts",
       "language": "TypeScript",
-      "hash": "7342deca66bbb1c1f0192694f2da16a8ba991d2994b2d0256399dbb70701ff3e",
+      "hash": "87b8909a090a888d1f9a80f2e9d5a97abf06c2b3002ae230a34b78a45f20ef86",
       "imports": [
         {
           "specifier": "node:url",
