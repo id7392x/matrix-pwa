@@ -21,6 +21,7 @@
 - **UI:** только Svelte 5 с Runes (`$state`, `$derived`, `$effect`); реактивные контракты старого стиля не используй.
 - **Перед коммитом:** гейт автоматизирован — pre-commit хук (simple-git-hooks) прогоняет `pnpm run check`, `pnpm test`, `pnpm run lint`; коммить только при 100% зелёном прогоне. Формат, типы/scopes, трейлеры и подписи — в `COMMITS.md`, читай его перед каждым коммитом.
 - **Авторство:** код-коммиты — автор `<repo-owner>` + ровно один трейлер `Co-authored-by: OpenCode <opencode-agent[bot]@users.noreply.github.com>`; док-коммиты (`docs/`, `AGENTS.md`, `HANDOFF.md`, `COMMITS.md`) — автор `OpenCode <opencode-agent[bot]@users.noreply.github.com>`, без трейлера. Таблица и правила — в `COMMITS.md`.
+- **Пуш:** коммиты делай локально и свободно, но **в `origin` не пуши без явного словесного подтверждения пользователя** («пушь», «да»). Наличие bypass-прав в Ruleset не отменяет это правило.
 
 ## Порядок разработки (TDD)
 
