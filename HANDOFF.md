@@ -1,31 +1,73 @@
 # Handoff — matrix-pwa (Svelte 5 Matrix-клиент)
 
-> Для свежего агента. Полные требования и решения — в `AGENTS.md` и `docs/00–04`; этот документ описывает только состояние, нюансы и следующие шаги, которых нет в артефактах.
+> Общее состояние проекта + трек `<repo-owner>`. Трек `mtwave` — в `HANDOFF-MTWAVE.md`.
+> Порядок входа: `AGENTS.md` → определить участника (ник назван? → `HANDOFF-<ник>.md`) → общее состояние в §1–3.
 
-## Состояние репозитория
+## 1. Общее состояние репозитория
 
-- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, запушена в `origin` (`github.com/<repo-owner>/matrix-pwa`, **публичный**). HEAD: `6ff324c`. История переписана и подписана (SSH, GitHub: Verified): **31 коммит** — код — автор `<repo-owner>` + ровно один трейлер `Co-authored-by: OpenCode <opencode-agent[bot]@users.noreply.github.com>`, доки — автор `OpenCode <opencode-agent[bot]@users.noreply.github.com>` без трейлера. Правила коммитов — в `COMMITS.md` (обязателен к прочтению перед каждым коммитом).
+- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, запушена в `origin` (`github.com/<repo-owner>/matrix-pwa`, **публичный**). HEAD: `6ff324c`. История переписана и подписана (SSH, GitHub: Verified): **31 коммит** — код — автор `<repo-owner>` + ровно один трейлер `Co-authored-by: OpenCode <opencode-agent[bot]@users.noreply.github.com>`, доки — автор `OpenCode <opencode-agent[bot]@users.noreply.github.com>` без трейлера. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
 - Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` 68/68, `pnpm run lint` чисто. Pre-commit хук (simple-git-hooks) прогоняется автоматически на каждом коммите.
-- **GitHub Ruleset «Protect main»**: люди — только через PR (1 approval + статус-чек `gate` + signed commits); `<repo-owner>` — bypass на прямой push (проверено эмпирически: прямой пуш агента проходит, лишь warning «Required status check 'gate' is expected»). ⚠️ Проверить вручную во вкладке Bypass: там должен быть ТОЛЬКО `<repo-owner>`, не «Everyone/All members».
+- **GitHub Ruleset «Protect main»**: люди — только через PR (1 approval + статус-чек `gate` + signed commits); `<repo-owner>` — bypass на прямой push (проверено эмпирически: пуш проходит, лишь warning «Required status check 'gate' is expected»). ⚠️ Проверить вручную во вкладке Bypass: там должен быть ТОЛЬКО `<repo-owner>`.
 - **GitHub Actions** (`acd2798`): гейт `pnpm check/test/lint` на push и pull_request.
-- **Push-политика агента: только локальные коммиты.** Пуш в `origin` — исключительно после явного словесного подтверждения пользователя («пушь», «да»). Наличие bypass прав не отменяет это процессное правило.
+- **Push-политика по трекам**: `<repo-owner>` — только локальные коммиты, пуш в `origin` после явного словесного подтверждения; `mtwave` — только свои feature-ветки (подробности — `AGENTS.md`).
 
-## Что было сделано (детали — в коммитах)
+## 2. Экскурсия по проекту (для новых участников)
 
-1. **Слайс 1 «UI на моках»** (`57ddc4c`). Сквозной путь до UI поверх доменного слоя: `uiStore` (hash-навигация), `LoginScreen`, `RoomList`/`RoomListItem`, `Timeline`/`TimelineItem`, `App.svelte`, `startDemoSync`. Критичная Vitest-готча — `resolve.conditions: ['browser']` в `vite.config.ts` (см. «Нюансы»).
-2. **Хардненинг безопасности** (`8991f36`, `502ff63`, `ee538d6`, `5050bcf`):
-   - `promotePendingToSynced` — runtime-валидация обязательных полей (`originServerTs`, `sender`, `type`, `content`, `isEncrypted`): некорректные данные из сети отклоняются `TypeError` ДО транзакции, pendingEvents не трогаются.
-   - `uiStore` — `decodeURIComponent` под try/catch: кривой hash (`#/room/%zz`) не роняет приложение.
-   - `demoSync` — `.catch` на `provider.start()`.
-   - **`SyncOrchestrator` — `isEncrypted = raw.type === 'm.room.encrypted'`** (закрывает баг до первого реального синка; ТЗ Слайса 2, уже реализовано и покрыто тестом — не трогать).
-   - `docs/03`: `payload: any` → `unknown`, валидация promote, запрет `{@html}` без санитизации `formattedBody`.
-   - `docs/04` (roadmap): счётчик 68/68; Слайсы 2 (isEncrypted + конверт), 4 (content-семантика), 5 (DOMPurify + CSP) уточнены.
-3. **Мета/CI/онбординг** (`acd2798`, `422ea17`, `9311268`, `920a4cb`, `6ff324c`):
-   - GitHub Actions гейт на push и PR; `CONTRIBUTING.md` + `.env.example` — онбординг разработчика.
-   - Git-identity: обе роли используют GitHub noreply-email (PII-политика, `920a4cb`).
-   - Ruleset «Protect main» + bypass только для `<repo-owner>`; `COMMITS.md` — таблица авторства для третьего автора и PR-workflow.
+### 2.1. Стек и структура
 
-## Следующий шаг — Слайс 2 `LegacySyncProvider` (`docs/04-ROADMAP.md` §5)
+- PWA Matrix-клиент: **Svelte 5 (Runes), TypeScript strict, Vite, Tailwind CSS**.
+- Хранилище и сеть: **Dexie.js 4 (IndexedDB)**, **Matrix JS SDK**, **Vodozemac WASM** (E2EE, Слайс 4).
+- Алиасы: `$lib` (`src/lib`), `$components`, `$storage`, `$sync`, `$crypto`, `$stores`, `$types`.
+- Документация-источники: `docs/00-PRINCIPLES.md`, `docs/01-ARCHITECTURE.md`, `docs/02-DATA-MODEL.md`, `docs/03-REFERENCE-CODE.md`, `docs/04-ROADMAP.md`.
+
+### 2.2. Команды
+
+- `pnpm run check` — svelte-check + tsc (линт/типы).
+- `pnpm test` / `pnpm test:watch` — Vitest (сейчас 68/68).
+- `pnpm run lint` — ESLint.
+- `pnpm dev` — dev-сервер (`http://localhost:5173`); `pnpm build` / `pnpm preview` — сборка/предпросмотр.
+- Гейт коммита: 100% зелёные `check` + `test` + `lint` (pre-commit хук гоняет сам).
+
+### 2.3. Правила (кратко)
+
+- TDD: падающий тест → минимальная реализация → рефакторинг; каждый слайс закрывается зелёным гейтом.
+- Типизация: `any` запрещён; неизвестные данные — `unknown`.
+- IndexedDB: только через Dexie.js + Web Locks API.
+- Blast radius: код менять только в рамках текущего слайса.
+- UI: только Svelte 5 Runes (`$state`/`$derived`/`$effect`).
+- Формат коммитов, scopes, авторство, подписи — `COMMITS.md`.
+
+### 2.4. Скиллы проекта (краткое описание и использование)
+
+- `git-commit` — атомарный коммит по Conventional Commits (сообщение/сборка за агентом). Скажи «закоммить».
+- `handoff` — фиксация состояния сессии в `HANDOFF-<ник>.md`. Вызывается в конце сессии.
+- `ponytail` — ленивый минимализм: stdlib/нативное/уже установленное раньше новых зависимостей. Действует по умолчанию.
+- `boy-scout-rule` — тронутый код оставить чище, чем застал. При правке существующих файлов.
+- `code-review` — ревью изменений (стандарты + соответствие слайсу). Перед коммитом/PR по слайсу.
+- `diagnosing-bugs` — диагностика падений/регрессий («диагностируй», «почему падает»).
+
+### 2.5. Прогресс по слайсам (подробно — `docs/04-ROADMAP.md`)
+
+| # | Слайс | Владелец | Статус |
+|---|---|---|---|
+| Stage 0–1 | инфраструктура, хранилище, домен, UI на моках | общий | выполнено |
+| 2 | `LegacySyncProvider` (реальный `/sync`) | `<repo-owner>` | **следующий** |
+| 3 | Отправка сообщений (dual-path) | `<repo-owner>` | запланирован |
+| 4 | E2EE Cold Start + re-decryption | `<repo-owner>` | запланирован |
+| 5 | История, пагинация, retention, медиа-кэш | `mtwave` (предложение) | запланирован |
+| 6 | Multi-tab + Lazy-sync | `mtwave` (предложение) | запланирован |
+
+## 3. Общие знания (фактология, хвосты, нюансы)
+
+- **WASM-миф:** ядро `matrix-js-sdk` НЕ тянет vodozemac/WASM; WASM грузится лениво через `initRustCrypto` (Слайс 4). Vite worker-конфиг заранее не нужен — YAGNI до Слайса 4. Реальная забота Слайса 2 — первый импорт SDK в happy-dom (shim/`vi.mock` при необходимости).
+- **CSP:** в коде нет ни одного `{@html}` — XSS-поверхности сейчас нет. Строгий CSP (01-АРХ §7) — предусловие Слайса 5 (prod-only `<meta>`, не в dev — ломает HMR). До Слайса 5 не трогать.
+- **`RoomDto.lastEventText`** осознанно НЕ заполняется (нужен запрос `db.events` по комнате) — со слайсом превью ленты.
+- **Хвосты:** в домене только `join`-комнаты (invite/leave, пагинация вверх, retention — будущие слайсы); `filters.ts` и `IMultiTabService` — Слайс 6; токены только RAM/sessionStorage (модель `AccountModel` запрещает токен в БД) — так задумано.
+- **Vitest-готча:** рендер-тесты Svelte требуют `resolve.conditions: ['browser']` в `vite.config.ts` — иначе `mount` из `svelte` резолвится в server-сборку (`lifecycle_function_unavailable`). Не удалять.
+- **Репо публичное** — ничего лишнего в файлы/историю (в авторских строках только GitHub noreply, без личных email).
+- `matrix-js-sdk` установлен, но в `src/` ещё не импортируется (первый импорт — Слайс 2).
+
+## 4. Трек `<repo-owner>` — следующий шаг: Слайс 2 `LegacySyncProvider` (`docs/04-ROADMAP.md` §5)
 
 Цель: заменить мок на реальный `/sync` через `matrix-js-sdk` без изменений в домене (контракт `ISyncProvider`, 01-АРХ §5).
 
@@ -41,40 +83,8 @@ TDD-контракт:
 - `startDemoSync` в `src/lib/demoSync.ts` — точка замены: станет `startLegacySync` (реальный клиент).
 - Vitest умеет рендерить Svelte (`resolve.conditions: ['browser']`).
 
-DoD: dev против реального homeserver (matrix.org), комнаты и события доезжают до UI; `ISyncProvider` не менялся; гейт зелёный; **локальный коммит; пуш — только после словесного подтверждения пользователя**; обновить HANDOFF.
+DoD: dev против реального homeserver (matrix.org), комнаты и события доезжают до UI; `ISyncProvider` не менялся; гейт зелёный; **локальный коммит; пуш — только после словесного подтверждения**; обновить HANDOFF.
 
-## Фактология (накопленная)
+## 5. Трек `mtwave`
 
-- **WASM-миф:** ядро `matrix-js-sdk` НЕ тянет vodozemac/WASM; WASM грузится лениво через `initRustCrypto` (Слайс 4). Vite worker-конфиг заранее не нужен — YAGNI до Слайса 4. Реальная забота Слайса 2 — первый импорт SDK в happy-dom (shim/`vi.mock` при необходимости).
-- **CSP:** в коде нет ни одного `{@html}` — XSS-поверхности сейчас нет. Внедрение строгого CSP (01-АРХ §7) — предусловие Слайса 5 (prod-only `<meta>`, не статический в dev — ломает HMR). До Слайса 5 не трогать.
-- **`RoomDto.lastEventText`** осознанно НЕ заполняется (нужен запрос `db.events` по комнате) — отложено до слайса с превью ленты.
-
-## Известные хвосты (deferred)
-
-- В домене только `join`-комнаты; invite/leave, пагинация вверх (`timelineGaps`), retention — не реализованы (будущие слайсы).
-- `filters.ts` (lazy-фильтр) и `IMultiTabService` (handshake/ACK) — не реализованы (Слайс 6).
-- `RoomDto.lastEventText` не заполняется в `toRoomDto` — нужен запрос `db.events` по комнате; заполнить вместе с UI-превью ленты.
-- Токены: только RAM/sessionStorage (модель `AccountModel` прямо запрещает хранение токена в БД) — так и задумано, не менять.
-
-## Нюансы проекта
-
-- **Репо публичное** — всё содержимое (в т.ч. `HANDOFF.md`, `AGENTS.md`, `COMMITS.md`, история коммитов) видимо любому. Не включать ничего, чего не должно быть публичным.
-- **Push-политика:** коммить можно свободно (локально), но **пуш — только после явного словесного «да»** от пользователя. Не пушить «по умолчанию» в конце сессии.
-- `matrix-js-sdk` установлен, но в `src/` **ещё не импортируется** (первый импорт случится на Слайсе 2).
-- **Vitest-готча:** рендер-тесты Svelte требуют `resolve.conditions: ['browser']` в `vite.config.ts` — иначе `mount` из `svelte` резолвится в server-сборку (`lifecycle_function_unavailable`). Не удалять.
-- Инварианты: `any` запрещён, IndexedDB только через Dexie, SDK-объекты не проходят в UI (DTO-граница `docs/01` §6), accessToken только RAM/sessionStorage.
-- Хранилище тестов: `fake-indexeddb`, среда `happy-dom`.
-- Полезные команды: `pnpm run check`, `pnpm test`, `pnpm run lint`, `pnpm dev`.
-
-## Suggested skills
-
-Следующей сессии (Слайс 2, первый импорт SDK и сетевой код):
-
-- `git-commit` — атомарные локальные коммиты; помнить про автоматический pre-commit гейт, правила авторства в `COMMITS.md` и **запрет на push без подтверждения**.
-- `code-review` — по окончании слайса прогнать ревью изменений (стандарты + соответствие `docs/04` §5).
-- `ponytail` — проект держит ленивый минимальный стиль; перед новыми зависимостями перепроверять необходимость.
-- `boy-scout-rule` — при касании существующих файлов домена/сторов.
-
-## Redacted
-
-Локальные пути за пределами репозитория не включены. Секретов (ключи, токены, пароли, accessToken) в сессии не было. GitHub noreply-адреса в авторстве коммитов — по решению `COMMITS.md` намеренно публичны; настоящих личных email в репозитории нет.
+Не подключён — активной работы нет. Вход: «я mtwave» (см. `AGENTS.md` «Участники и вход», `HANDOFF-MTWAVE.md`).
