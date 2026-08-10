@@ -5,7 +5,7 @@
 
 ## 1. Общее состояние репозитория
 
-- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, запушена в `origin` (`github.com/<repo-owner>/matrix-pwa`, **публичный**). HEAD: `6ff324c`. История переписана и подписана (SSH, GitHub: Verified): **31 коммит** — код — автор `<repo-owner>` + ровно один трейлер `Co-authored-by: OpenCode <opencode-agent[bot]@users.noreply.github.com>`, доки — автор `OpenCode <opencode-agent[bot]@users.noreply.github.com>` без трейлера. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
+- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, **локальный HEAD: `1ddc62f`, 37 коммитов**; `origin` (`github.com/<repo-owner>/matrix-pwa`, **публичный**) отстаёт на 6 коммитов (HEAD `6ff324c`, последние док-правки треков не запушены — пуш только после подтверждения). История переписана и подписана (SSH, GitHub: Verified) — код — автор `<repo-owner>` + ровно один трейлер `Co-authored-by: OpenCode <opencode-agent[bot]@users.noreply.github.com>`, доки — автор `OpenCode <opencode-agent[bot]@users.noreply.github.com>` без трейлера. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
 - Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` 68/68, `pnpm run lint` чисто. Pre-commit хук (simple-git-hooks) прогоняется автоматически на каждом коммите.
 - **GitHub Ruleset «Protect main»**: люди — только через PR (1 approval + статус-чек `gate` + signed commits); `<repo-owner>` — bypass на прямой push (проверено эмпирически: пуш проходит, лишь warning «Required status check 'gate' is expected»). ⚠️ Проверить вручную во вкладке Bypass: там должен быть ТОЛЬКО `<repo-owner>`.
 - **GitHub Actions** (`acd2798`): гейт `pnpm check/test/lint` на push и pull_request.
