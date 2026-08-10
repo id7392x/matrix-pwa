@@ -26,10 +26,12 @@
 
 ```sh
 git config user.name "Твоё имя"
-git config user.email "твой@email"
+git config user.email "<id>+<username>@users.noreply.github.com"   # GitHub noreply, не личная почта
 git config commit.gpgsign true
 git config gpg.format ssh
 ```
+
+- Email автора — **GitHub noreply-адрес** (GitHub → Settings → Emails → «Keep my email addresses private»): репозиторий публичный, личные email в историю коммитов не попадают.
 
 - Загрузи публичный ключ в GitHub → Settings → SSH and GPG keys → New SSH signing key.
 - Проверка подписи: `git log --format='%h | %G?'` — должно быть `G` (Verified).

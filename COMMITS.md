@@ -22,9 +22,10 @@
 | Коммит | Автор | Трейлер `Co-authored-by` |
 | --- | --- | --- |
 | Код (`feat`/`fix`/`refactor`/`chore` по коду, `test`) | `id7392x <314162549+id7392x@users.noreply.github.com>` | ровно одна строка: `OpenCode <opencode-agent[bot]@users.noreply.github.com>` |
-| Код — сторонний разработчик | `MTWave <email: добавить>` | ровно одна строка: `OpenCode <opencode-agent[bot]@users.noreply.github.com>` |
+| Код — сторонний разработчик | `MTWave <его noreply-email>` | ровно одна строка: `OpenCode <opencode-agent[bot]@users.noreply.github.com>` |
 | Доки (`docs(...)`, правки `AGENTS.md`/`HANDOFF.md`/`COMMITS.md`/файлов в `docs/`) | `OpenCode <opencode-agent[bot]@users.noreply.github.com>` | нет |
 
+- **Приватность:** в авторских строках используются ТОЛЬКО GitHub noreply-адреса (`<id>+<username>@users.noreply.github.com`) — личные email в репозиторий не попадают (они всё равно видны в каждом коммите). У MTWave — его noreply: GitHub → Settings → Emails → «Keep my email addresses private».
 - **Код-коммит:** автор по умолчанию `id7392x`; трейлер — в конце сообщения, после пустой строки, не дублировать.
 - **Код-коммит стороннего разработчика:** автор — сам разработчик (его имя/email), трейлер `Co-authored-by: OpenCode` обязателен, как у `id7392x`.
 - **Док-коммит:** создавать с явным автором:
