@@ -1,5 +1,23 @@
 import { db, type EventModel } from './db'
 
+const REQUIRED_FIELDS = [
+  ['originServerTs', 'number'],
+  ['sender', 'string'],
+  ['type', 'string'],
+  ['content', 'object'],
+  ['isEncrypted', 'boolean'],
+] as const satisfies ReadonlyArray<readonly [keyof EventModel, string]>
+
+function assertValidSyncedData(data: Partial<EventModel>): void {
+  for (const [field, kind] of REQUIRED_FIELDS) {
+    const value = data[field]
+    const valid = kind === 'object' ? typeof value === 'object' && value !== null : typeof value === kind
+    if (!valid) {
+      throw new TypeError(`promotePendingToSynced: required field "${String(field)}" is missing or has invalid type`)
+    }
+  }
+}
+
 export async function promotePendingToSynced(
   userId: string,
   roomId: string,
@@ -7,6 +25,7 @@ export async function promotePendingToSynced(
   eventId: string,
   syncedData: Partial<EventModel>,
 ): Promise<void> {
+  assertValidSyncedData(syncedData)
   const userAndTxnId = `${userId}:${txnId}`
 
   await db.transaction('rw', [db.pendingEvents, db.events], async () => {

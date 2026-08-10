@@ -5,10 +5,18 @@ export type UiScreen = { name: 'login' } | { name: 'rooms' } | { name: 'room'; r
 const LOGIN_HASH = '#/login'
 const ROOMS_HASH = '#/rooms'
 
+function decodeRoomId(segment: string): string {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return segment
+  }
+}
+
 function screenFromHash(hash: string): UiScreen {
   const path = hash.replace(/^#\/?/, '')
   if (path.startsWith('room/')) {
-    return { name: 'room', roomId: decodeURIComponent(path.slice('room/'.length)) }
+    return { name: 'room', roomId: decodeRoomId(path.slice('room/'.length)) }
   }
   if (path === 'rooms') return { name: 'rooms' }
   return { name: 'login' }

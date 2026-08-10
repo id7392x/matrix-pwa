@@ -55,6 +55,12 @@ describe('uiStore', () => {
     expect(uiStore.screen).toEqual({ name: 'room', roomId: '!b:example.org' })
   })
 
+  it('does not crash on a malformed percent-encoded room id in the hash', () => {
+    location.hash = '#/room/%zz'
+    window.dispatchEvent(new Event('hashchange'))
+    expect(uiStore.screen.name).toBe('room')
+  })
+
   it('openRoom clears pending buffered timeline state', () => {
     batchedStore.pushEvents([evt('$buffered')])
     uiStore.openRoom('!a')

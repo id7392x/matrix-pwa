@@ -253,6 +253,34 @@ describe('AppDatabase', () => {
       expect(synced?.syncState).toBe('synced')
     })
 
+    it('rejects syncedData without required fields and writes nothing', async () => {
+      await db.pendingEvents.add(pending())
+      await expect(
+        promotePendingToSynced(alice, roomId, 'txn1', '$1', {
+          originServerTs: 1000,
+          sender: alice,
+          type: 'm.room.message',
+          isEncrypted: true,
+        } as Partial<import('./db').EventModel>),
+      ).rejects.toThrow(/content/)
+
+      expect(await db.events.get([alice, roomId, '$1'])).toBeUndefined()
+      expect(await db.pendingEvents.get(`${alice}:txn1`)).toBeDefined()
+    })
+
+    it('rejects wrong-typed required fields', async () => {
+      await expect(
+        promotePendingToSynced(alice, roomId, 'txn1', '$1', {
+          originServerTs: 1000,
+          sender: alice,
+          type: 'm.room.message',
+          content: 'not-an-object',
+          isEncrypted: false,
+        } as unknown as Partial<import('./db').EventModel>),
+      ).rejects.toThrow(/content/)
+      expect(await db.events.get([alice, roomId, '$1'])).toBeUndefined()
+    })
+
     it('is idempotent for the same eventId', async () => {
       const syncedData = {
         originServerTs: 1000,

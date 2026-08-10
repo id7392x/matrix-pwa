@@ -60,5 +60,5 @@ export function startDemoSync(userId: string): void {
   const provider = new MockSyncProvider(demoFixtures())
   const orchestrator = new SyncOrchestrator(userId, new PendingQueueService(), batchedStore)
   provider.onSync((sync) => orchestrator.handleSync(sync))
-  void provider.start()
+  provider.start().catch((error) => console.error('demo sync failed', error))
 }
