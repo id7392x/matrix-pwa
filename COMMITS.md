@@ -34,8 +34,9 @@
 
 ## Работа с несколькими разработчиками
 
-- **Ветка + PR:** в `main` напрямую не пушим; каждый слайс/фича — ветка от `main` → pull request.
-- **CI обязателен:** гейт (`check`, `test`, `lint`) прогоняется GitHub Actions на каждом PR; branch protection требует зелёный статус `gate` и минимум 1 approval.
+- **Доверенный агент (`<repo-owner>`):** пушит напрямую в `main` без PR (bypass в Ruleset). Это единственный путь прямого пуша; ветки для работы агента не создаются.
+- **Люди (в т.ч. `MTWave`):** в `main` напрямую не пушат; каждый слайс/фича — ветка от `main` → pull request → минимум 1 approval от `<repo-owner>` → merge. После merge ветка удаляется (remote-ветки не копим).
+- **CI обязателен:** гейт (`check`, `test`, `lint`) прогоняется GitHub Actions на push и PR; для PR-веток branch protection требует зелёный статус `gate`.
 - **Правило 8 (гейт) действует всегда:** локально `pnpm run check && pnpm test && pnpm run lint` перед push; `--no-verify` / `--no-hooks` запрещены у всех.
 - Подпись SSH — у каждого разработчика своя (см. `CONTRIBUTING.md`).
 
