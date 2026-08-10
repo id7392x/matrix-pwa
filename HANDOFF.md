@@ -5,8 +5,8 @@
 
 ## 1. Общее состояние репозитория
 
-- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, **локальный HEAD: `1ddc62f`, 37 коммитов**; `origin` (`github.com/<repo-owner>/matrix-pwa`, **публичный**) отстаёт на 6 коммитов (HEAD `6ff324c`, последние док-правки треков не запушены — пуш только после подтверждения). История переписана и подписана (SSH, GitHub: Verified) — код — автор `<repo-owner>` + ровно один трейлер `Co-authored-by: OpenCode <opencode-agent[bot]@users.noreply.github.com>`, доки — автор `OpenCode <opencode-agent[bot]@users.noreply.github.com>` без трейлера. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
-- Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` 68/68, `pnpm run lint` чисто. Pre-commit хук (simple-git-hooks) прогоняется автоматически на каждом коммите.
+- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, **локальный HEAD: `b31d7ea`, 39 коммитов**; Слайс 2 закоммичен локально. `origin` (`github.com/<repo-owner>/matrix-pwa`, **публичный**) отстаёт — пуш только после подтверждения. История переписана и подписана (SSH, GitHub: Verified) — код — автор `<repo-owner>` + ровно один трейлер `Co-authored-by: OpenCode <opencode-agent[bot]@users.noreply.github.com>`, доки — автор `OpenCode <opencode-agent[bot]@users.noreply.github.com>` без трейлера. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
+- Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` 79/79, `pnpm run lint` чисто, `pnpm run build` собирается. Pre-commit хук (simple-git-hooks) прогоняется автоматически на каждом коммите.
 - **GitHub Ruleset «Protect main»**: люди — только через PR (1 approval + статус-чек `gate` + signed commits); `<repo-owner>` — bypass на прямой push (проверено эмпирически: пуш проходит, лишь warning «Required status check 'gate' is expected»). ⚠️ Проверить вручную во вкладке Bypass: там должен быть ТОЛЬКО `<repo-owner>`.
 - **GitHub Actions** (`acd2798`): гейт `pnpm check/test/lint` на push и pull_request.
 - **Push-политика по трекам**: `<repo-owner>` — только локальные коммиты, пуш в `origin` после явного словесного подтверждения; `mtwave` — только свои feature-ветки (подробности — `AGENTS.md`).
@@ -51,8 +51,8 @@
 | # | Слайс | Владелец | Статус |
 |---|---|---|---|
 | Stage 0–1 | инфраструктура, хранилище, домен, UI на моках | общий | выполнено |
-| 2 | `LegacySyncProvider` (реальный `/sync`) | `<repo-owner>` | **следующий** |
-| 3 | Отправка сообщений (dual-path) | `<repo-owner>` | запланирован |
+| 2 | `LegacySyncProvider` (реальный `/sync`) | `<repo-owner>` | **выполнен** (`b31d7ea`) |
+| 3 | Отправка сообщений (dual-path) | `<repo-owner>` | **следующий** |
 | 4 | E2EE Cold Start + re-decryption | `<repo-owner>` | запланирован |
 | 5 | История, пагинация, retention, медиа-кэш | свободен (кандидат — `mtwave`, решит сам) | запланирован |
 | 6 | Multi-tab + Lazy-sync | свободен (кандидат — `mtwave`, решит сам) | запланирован |
@@ -60,31 +60,29 @@
 
 ## 3. Общие знания (фактология, хвосты, нюансы)
 
-- **WASM-миф:** ядро `matrix-js-sdk` НЕ тянет vodozemac/WASM; WASM грузится лениво через `initRustCrypto` (Слайс 4). Vite worker-конфиг заранее не нужен — YAGNI до Слайса 4. Реальная забота Слайса 2 — первый импорт SDK в happy-dom (shim/`vi.mock` при необходимости).
+- **WASM-миф:** ядро `matrix-js-sdk` НЕ тянет vodozemac/WASM; WASM грузится лениво через `initRustCrypto` (Слайс 4). Vite worker-конфиг заранее не нужен — YAGNI до Слайса 4. В prod-сборке Slice 2 `matrix_rust_crypto`/WASM-чанки эмитятся ленивыми ассетами (не скачиваются без `initRustCrypto`) — это ОК, не трогаем. Первый импорт `matrix-js-sdk` — в `src/lib/legacySync.ts` и `src/sync/legacySyncProvider.ts` (Слайс 2).
+- **SDK-нюансы v42:** `Room.isDirect` не существует — DM определяется через `m.direct` accountData (`client.getAccountData(EventType.Direct)`, см. `legacySyncProvider.directRoomIds`). Счётчики непрочитанного — через `room.setUnread`/`getUnreadNotificationCount(NotificationCountType.*)`; `room.name` уже содержит SDK-fallback heroes/roomId. Событие `ClientEvent.Sync` отдаёт `ISyncStateData` (`nextSyncToken`), сырых комнат там нет — комнаты берутся из `client.getRooms()` после обработки синка; релевантно состояние `Syncing` (каждый цикл `/sync`).
 - **CSP:** в коде нет ни одного `{@html}` — XSS-поверхности сейчас нет. Строгий CSP (01-АРХ §7) — предусловие Слайса 5 (prod-only `<meta>`, не в dev — ломает HMR). До Слайса 5 не трогать.
 - **`RoomDto.lastEventText`** осознанно НЕ заполняется (нужен запрос `db.events` по комнате) — со слайсом превью ленты.
-- **Хвосты:** в домене только `join`-комнаты (invite/leave, пагинация вверх, retention — будущие слайсы); `filters.ts` и `IMultiTabService` — Слайс 6; токены только RAM/sessionStorage (модель `AccountModel` запрещает токен в БД) — так задумано.
-- **Vitest-готча:** рендер-тесты Svelte требуют `resolve.conditions: ['browser']` в `vite.config.ts` — иначе `mount` из `svelte` резолвится в server-сборку (`lifecycle_function_unavailable`). Не удалять.
+- **Хвосты:** `SyncOrchestrator` принимает полный live-timeline комнаты каждый цикл и идемпотентно пишет (DB-PK дедупа). Дубликаты строк в UI предотвращает `batchedStore.pushEvents` (idempotent по `event.id`) — это вынужденная правка прошлого слоя (roadmap §10.2), причина зафиксирована в коммите `b31d7ea`. invite/leave, пагинация вверх, retention — будущие слайсы; `filters.ts` и `IMultiTabService` — Слайс 6; токены только RAM/sessionStorage (модель `AccountModel` запрещает токен в БД) — так задумано.
+- **Ручная проверка dev (не автоматизируется):** реальный `/sync` требует accessToken живого аккаунта — прогон против matrix.org делается в браузере вручную (`pnpm dev`, логин с токеном). Unit-покрытие цепи sync→stores есть в `legacySync.test.ts` и `legacySyncProvider.test.ts`.
+- **Vitest-готча:** рендер-тесты Svelte требуют `resolve.conditions: ['browser']` в `vite.config.ts` — иначе `mount` из `svelte` резолвится в server-сборку (`lifecycle_function_unavailable`). Не удалять. Дополнительно: SDK `matrix-js-sdk` (ESM с directory-imports, напр. `../http-api`) в Node-резолве падает — обязателен `test.server.deps.inline: [/matrix-js-sdk/]` (Vite резолвит `.ts`/индексные импорты). Не удалять.
 - **Репо публичное** — ничего лишнего в файлы/историю (в авторских строках только GitHub noreply, без личных email).
-- `matrix-js-sdk` установлен, но в `src/` ещё не импортируется (первый импорт — Слайс 2).
 
-## 4. Трек `<repo-owner>` — следующий шаг: Слайс 2 `LegacySyncProvider` (`docs/04-ROADMAP.md` §5)
+## 4. Трек `<repo-owner>` — следующий шаг: Слайс 3 — отправка сообщений (`docs/04-ROADMAP.md` §6)
 
-Цель: заменить мок на реальный `/sync` через `matrix-js-sdk` без изменений в домене (контракт `ISyncProvider`, 01-АРХ §5).
+Слайс 2 выполнен: `LegacySyncProvider` + адаптеры (`legacySyncProvider.ts`), `startLegacySync` (`legacySync.ts`), интеграция в `LoginScreen`, `batchedStore` идемпотентен по `event.id`; гейт зелёный, коммит `b31d7ea`, обновлён HANDOFF. DoD Слайса 2: осталась только ручная проверка против реального homeserver (нужен живой accessToken) + ревью `code-review` перед PR.
 
-TDD-контракт:
-1. Адаптер `MatrixRoom → SyncJoinedRoom`: имя из `m.room.name`, иначе из heroes/fallback; `unread_notifications` → счётчики.
-2. `MatrixEvent → SyncRawEvent`: `txn_id` пробрасывается (для dual-path), `content` — сырой JSON.
-3. Провайдер собирает `next_batch` из sync-ответа.
-4. `SyncOrchestrator`: `m.room.encrypted` → `isEncrypted: true` (уже реализовано и покрыто тестом — не трогать).
+Цель Слайса 3: оптимистичная отправка с dual-path promote (02-DATA §4, §3): `PendingQueueService.create` → `/send` → ответ или эхо `/sync` → `promotePendingToSynced`. UI: поле ввода в `Timeline`; статусы `sending`/`failed` в `EventDto.syncState`; retry (3) + ручной повтор. Базовый dual-path promote в `SyncOrchestrator` уже есть и покрыт тестами — Слайс 3 добирает сетевой `/send` и UI.
 
-Что уже готово:
-- `ISyncProvider`/`SyncRawEvent`/`SyncJoinedRoom`/`SyncResponse` — контракт провайдера, мок реализует его полностью.
-- `LoginScreen` принимает homeserver/userId/deviceId/accessToken → `AccountManager` (RAM/sessionStorage); токен из `AccountManager.getAccessToken` — источник для `createClient`.
-- `startDemoSync` в `src/lib/demoSync.ts` — точка замены: станет `startLegacySync` (реальный клиент).
-- Vitest умеет рендерить Svelte (`resolve.conditions: ['browser']`).
+TDD-контракт (04 §6.3):
+1. `PendingQueueService.create` + эхо `txn_id` → promote, дубликата нет (частично покрыто).
+2. Retry: `recordFailure` до лимита → `pending`; после → `failed` с `errorText`.
+3. UI-тест: отправленное видно сразу (optimistic), статус → `synced` после эха.
 
-DoD: dev против реального homeserver (matrix.org), комнаты и события доезжают до UI; `ISyncProvider` не менялся; гейт зелёный; **локальный коммит; пуш — только после словесного подтверждения**; обновить HANDOFF.
+Что уже готово для Слайса 3:
+- `LegacySyncProvider` умеет доставлять события (в т.ч. эхо с `txn_id`) из реального `/sync` в `SyncOrchestrator` (благодаря `toSyncRawEvent.txn_id` passthrough).
+- `START` точка входа: `startLegacySync` — добавить `/send` вызов (client.sendTextMessage/от клиента) и обработку ответа (promote по `event_id`).
 
 ## 5. Трек `mtwave`
 
