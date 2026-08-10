@@ -22,7 +22,7 @@
 | Коммит | Автор | Трейлер `Co-authored-by` |
 | --- | --- | --- |
 | Код (`feat`/`fix`/`refactor`/`chore` по коду, `test`) | `id7392x <314162549+id7392x@users.noreply.github.com>` | ровно одна строка: `OpenCode <opencode-agent[bot]@users.noreply.github.com>` |
-| Доки (`docs(...)`, `chore(meta): refresh repo map`, правки `AGENTS.md`/`HANDOFF.md`/`COMMITS.md`/файлов в `docs/`) | `OpenCode <opencode-agent[bot]@users.noreply.github.com>` | нет |
+| Доки (`docs(...)`, правки `AGENTS.md`/`HANDOFF.md`/`COMMITS.md`/файлов в `docs/`) | `OpenCode <opencode-agent[bot]@users.noreply.github.com>` | нет |
 
 - **Код-коммит:** автор по умолчанию `id7392x`; трейлер — в конце сообщения, после пустой строки, не дублировать.
 - **Док-коммит:** создавать с явным автором:

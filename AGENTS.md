@@ -20,7 +20,7 @@
 - **Blast radius:** меняй код только внутри текущего вертикального слайса; за его пределы не выходи.
 - **UI:** только Svelte 5 с Runes (`$state`, `$derived`, `$effect`); реактивные контракты старого стиля не используй.
 - **Перед коммитом:** гейт автоматизирован — pre-commit хук (simple-git-hooks) прогоняет `pnpm run check`, `pnpm test`, `pnpm run lint`; коммить только при 100% зелёном прогоне. Формат, типы/scopes, трейлеры и подписи — в `COMMITS.md`, читай его перед каждым коммитом.
-- **Авторство:** код-коммиты — автор `id7392x` + ровно один трейлер `Co-authored-by: OpenCode <opencode-agent[bot]@users.noreply.github.com>`; док-коммиты (`docs/`, `AGENTS.md`, `HANDOFF.md`, `COMMITS.md`, repo-map) — автор `OpenCode <opencode-agent[bot]@users.noreply.github.com>`, без трейлера. Таблица и правила — в `COMMITS.md`.
+- **Авторство:** код-коммиты — автор `id7392x` + ровно один трейлер `Co-authored-by: OpenCode <opencode-agent[bot]@users.noreply.github.com>`; док-коммиты (`docs/`, `AGENTS.md`, `HANDOFF.md`, `COMMITS.md`) — автор `OpenCode <opencode-agent[bot]@users.noreply.github.com>`, без трейлера. Таблица и правила — в `COMMITS.md`.
 
 ## Порядок разработки (TDD)
 

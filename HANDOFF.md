@@ -4,7 +4,7 @@
 
 ## Состояние репозитория
 
-- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, запушена в `origin` (`github.com/id7392x/matrix-pwa`). История переписана и подписана (SSH, GitHub: Verified): 9 код-коммитов — автор `id7392x` + соавтор opencode, 8 док-коммитов — автор `OpenCode <opencode-agent[bot]@users.noreply.github.com>`. Правила коммитов — в `COMMITS.md` (обязателен к прочтению перед каждым коммитом).
+- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, запушена в `origin` (`github.com/id7392x/matrix-pwa`). История переписана и подписана (SSH, GitHub: Verified): 9 код-коммитов — автор `id7392x` + соавтор opencode, 9 док-коммитов — автор `OpenCode <opencode-agent[bot]@users.noreply.github.com>`. Правила коммитов — в `COMMITS.md` (обязателен к прочтению перед каждым коммитом).
 - Последние коммиты — см. `git log --oneline` (все темы в Conventional Commits, трейлер `Co-authored-by` ровно на 9 код-коммитах).
 - Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` 64/64, `pnpm run lint` чисто. **Pre-commit хук теперь автоматический** — прогоняется сам на каждом коммите.
 - Remote: `origin` = `https://github.com/id7392x/matrix-pwa.git`, `main` запушен. CI не настроен — локальный гейт уже автоматизирован.
@@ -39,7 +39,7 @@
 - `startDemoSync` в `src/lib/demoSync.ts` — точка замены: на Слайсе 2 она станет `startLegacySync` (реальный клиент).
 - Vitest уже умеет рендерить Svelte (`resolve.conditions: ['browser']`) — это пригодится, если первый импорт SDK проверим в тесте.
 
-Порядок: падающий тест → реализация → рефакторинг → гейт → коммит. После сессии обновить `HANDOFF.md` в корне репо и пересобрать `node scripts/repo-map.mjs`.
+Порядок: падающий тест → реализация → рефакторинг → гейт → коммит. После сессии обновить `HANDOFF.md` в корне репо.
 
 ## Фактология (накопленная, к Слайсу 2)
 
@@ -62,13 +62,12 @@
 - Инварианты: `any` запрещён, IndexedDB только через Dexie, SDK-объекты не проходят в UI (DTO-граница `docs/01` §6), accessToken только RAM/sessionStorage.
 - `RoomDto.lastEventText` осознанно не заполняется в `toRoomDto` — нужен запрос `db.events` по комнате; заполнить вместе с UI-превью ленты.
 - Хранилище тестов: `fake-indexeddb`, среда `happy-dom`.
-- Полезные команды: `pnpm run check`, `pnpm test`, `pnpm run lint`, `pnpm dev`, `node scripts/repo-map.mjs`.
+- Полезные команды: `pnpm run check`, `pnpm test`, `pnpm run lint`, `pnpm dev`.
 
 ## Suggested skills
 
 Следующей сессии (Слайс 2, первый импорт SDK и сетевой код) предлагается загрузить:
 
-- `repo-mapping` — после изменений пересобрать карту (`node scripts/repo-map.mjs`) и обновить `.opencode/repo-map.json`.
 - `git-commit` — атомарные коммиты; помнить про автоматический pre-commit гейт.
 - `code-review` — по окончании слайса прогнать ревью изменений (стандарты + соответствие спекам `docs/04` §5).
 - `ponytail` — проект держит ленивый минимальный стиль; перед добавлением новых зависимостей (например, роутер, тестовая библиотека) перепроверить необходимость.
