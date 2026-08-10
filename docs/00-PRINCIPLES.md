@@ -1,4 +1,3 @@
-```markdown  
 # 00. Принципы и жёсткие инварианты  
 **Версия:** 2.1.1-PRINCIPLES    
 **Статус:** Конституция проекта. Изменяется только осознанно и с фиксацией причины.  
@@ -47,24 +46,24 @@
   
 ## 3.2. Безопасность сессий  
 1. accessToken разрешено хранить только в оперативной памяти (RAM) текущей сессии или в sessionStorage. Категорически запрещено: localStorage, IndexedDB, Dexie, любые другие persistent-хранилища.  
-Передача* *токена* *между* *вкладками*:* Для поддержки Multi-tab переключения ролей (Master/Slave) перенос accessToken между вкладками выполняется исключительно по запросу через BroadcastChannel с использованием защищенного handshake/nonce-механизма без сохранения на диск.  
+**Передача токена между вкладками:** Для поддержки Multi-tab переключения ролей (Master/Slave) перенос accessToken между вкладками выполняется исключительно по запросу через `BroadcastChannel` с использованием защищённого handshake/nonce-механизма без сохранения на диск.  
 2. Crypto store всегда изолирован по формуле:  
-storePrefix: ⁠matrix-js-sdk:crypto:${userId}:${deviceId}⁠  
+`storePrefix: matrix-js-sdk:crypto:${userId}:${deviceId}`  
 Использование общего store без префикса запрещено.  
 ## 3.3. Инициализация и E2EE  
 1. Строгий порядок Cold Start (нарушение почти гарантированно приводит к Permanent UTD):  
-createClient() -> await initRustCrypto({ storePrefix }) -> startClient()  
-Никакие события /sync не должны обрабатываться до полного завершения initRustCrypto.  
+`createClient()` → `await initRustCrypto({ storePrefix })` → `startClient()`  
+Никакие события `/sync` не должны обрабатываться до полного завершения `initRustCrypto`.  
 2. Фоновые (Lazy) аккаунты обязаны получать критические события шифрования и актуализации устройств.  
-Filter для Lazy-аккаунтов должен включать to_device и государственные типы как минимум:  
- m.room_key  
- m.forwarded_room_key  
- m.room_key_request  
- m.dummy  
- m.room.encrypted  
- m.device_list_update  
- m.room_key.withheld  
- m.key.verification.* (все типы верификации)  
+Filter для Lazy-аккаунтов должен включать `to_device` и государственные типы как минимум:  
+- `m.room_key`  
+- `m.forwarded_room_key`  
+- `m.room_key_request`  
+- `m.dummy`  
+- `m.room.encrypted`  
+- `m.device_list_update`  
+- `m.room_key.withheld`  
+- `m.key.verification.*` (все типы верификации)  
 Отрезание этих событий категорически запрещено.  
   
 ### 3.4. Хранилище и конкурентный доступ  
@@ -97,6 +96,3 @@ Filter для Lazy-аккаунтов должен включать to_device и
 ---  
   
 **Конец документа.**  
-```  
-  
----  

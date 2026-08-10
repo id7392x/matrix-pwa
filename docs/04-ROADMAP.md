@@ -188,7 +188,7 @@ E2EE по 00-PRINCIPLES §3.3 и 01-АРХ §4: строгий порядок `c
 
 - Web Locks: ровно одна Master-вкладка на `userId+deviceId` (лок `matrix_master_${userId}_${deviceId}`), Slave читают из IndexedDB и проксируют команды через `BroadcastChannel` (nonce-handshake, ACK 500 мс).
 - `IMultiTabService` (03 §4.2), перенос accessToken между вкладками только в RAM через handshake.
-- Active/Lazy аккаунты: Lazy — polling 2–5 мин + sync при фокусе; filter обязан включать критические `to_device`-типы (00 §3.3.6).
+- Active/Lazy аккаунты: Lazy — polling 2–5 мин + sync при фокусе; filter обязан включать критические `to_device`-типы (00 §3.3.2).
 - `ISyncFilterService` (03 §4.4), `filters.ts`.
 
 ---

@@ -1,4 +1,3 @@
-```
 # 03-REFERENCE-CODE.md
 **Версия:** 2.2-CODE (Corrected & Verified)  
 **Статус:** Архитектурный контракт  
@@ -38,13 +37,13 @@ export interface RoomModel {
 }
 
 export interface EventModel {
-  eventId: string; // PK
+  eventId: string; // компонент составного PK [userId+roomId+eventId]
   userId: string;
   roomId: string;
   originServerTs: number;
   sender: string;
   type: string;
-  content: Record<string, any>; // Расшифрованный / подготовленный content
+  content: Record<string, unknown>; // Расшифрованный / подготовленный content
   txnId?: string;
   syncState: SyncState;
   isEncrypted: boolean;
@@ -58,7 +57,7 @@ export interface PendingEventModel {
   txnId: string;
   userId: string;
   roomId: string;
-  content: Record<string, any>;
+  content: Record<string, unknown>;
   status: PendingStatus;
   createdAt: number;
   retryCount: number;
@@ -147,6 +146,7 @@ export interface RoomDto {
 **4.1. AccountManager & Session**  
 ```
 export interface IAccountManager {
+  addAccount(account: AccountModel): Promise<void>;
   getActiveAccount(): Promise<AccountModel | null>;
   getAccessToken(userId: string): string | null; // Только из RAM / sessionStorage
   setAccessToken(userId: string, token: string): void;
@@ -177,7 +177,7 @@ export interface IE2EEService {
 ```
 export interface ISyncFilterService {
   // Расширенный фоновый фильтр для сохранности E2EE-сессий
-  getLazyBackgroundFilter(): Record<string, any>;
+  getLazyBackgroundFilter(): Record<string, unknown>;
 }
 
 ```
@@ -222,7 +222,7 @@ export async function promotePendingToSynced(
       await db.pendingEvents.delete(userAndTxnId);
     }
     
-    // 2. Гарантированный put в events с PK = eventId (идемпотентно)
+    // 2. Гарантированный put в events с составным PK [userId+roomId+eventId] (идемпотентно)
     await db.events.put({
       ...syncedData,
       eventId,
@@ -251,7 +251,7 @@ export async function initializeClientSession(
   await client.initRustCrypto({ storePrefix });
   
   // 3. Регистрация Re-decryption слушателя до запуска Sync
-  client.on('Event.decrypted' as any, (event: any) => {
+  client.on('Event.decrypted', (event: unknown) => {
     // Реактивная обработка запоздавших ключей Olm/Megolm
   });
 
