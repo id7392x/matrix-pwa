@@ -157,4 +157,35 @@ describe('SyncOrchestrator', () => {
     expect(store.events).toHaveLength(0)
     expect((await db.rooms.toArray()).length).toBe(0)
   })
+
+  it('marks m.room.encrypted events as isEncrypted and hides the ciphertext envelope', async () => {
+    const { store, orchestrator } = setup()
+    await orchestrator.handleSync(
+      sync({
+        rooms: {
+          join: {
+            [roomId]: {
+              timeline: {
+                prev_batch: 't0',
+                events: [
+                  {
+                    event_id: '$enc',
+                    origin_server_ts: 2000,
+                    sender: '@bob:example.org',
+                    type: 'm.room.encrypted',
+                    content: { algorithm: 'm.megolm.v1.aes-sha2', sender_key: 'k', ciphertext: 'x' },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      }),
+    )
+
+    const event = await db.events.get([alice, roomId, '$enc'])
+    expect(event?.isEncrypted).toBe(true)
+    expect(store.events[0].isEncrypted).toBe(true)
+    expect(store.events[0].body).toBe('')
+  })
 })

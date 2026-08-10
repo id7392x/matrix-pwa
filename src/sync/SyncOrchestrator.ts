@@ -4,6 +4,8 @@ import type { EventDto } from '$types/dto'
 import type { SyncJoinedRoom, SyncRawEvent, SyncResponse } from './ISyncProvider'
 import type { PendingQueueService } from './PendingQueueService'
 
+const isEncrypted = (raw: SyncRawEvent): boolean => raw.type === 'm.room.encrypted'
+
 export class SyncOrchestrator {
   constructor(
     private readonly userId: string,
@@ -47,7 +49,7 @@ export class SyncOrchestrator {
         sender: raw.sender,
         type: raw.type,
         content: raw.content,
-        isEncrypted: false,
+        isEncrypted: isEncrypted(raw),
       })
       return
     }
@@ -61,7 +63,7 @@ export class SyncOrchestrator {
       type: raw.type,
       content: raw.content,
       syncState: 'synced',
-      isEncrypted: false,
+      isEncrypted: isEncrypted(raw),
     }
     await db.events.put(model)
   }
@@ -78,7 +80,7 @@ export class SyncOrchestrator {
       type: raw.type,
       body,
       formattedBody,
-      isEncrypted: false,
+      isEncrypted: isEncrypted(raw),
       syncState: 'synced',
     }
   }
