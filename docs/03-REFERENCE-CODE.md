@@ -113,7 +113,7 @@ export interface EventDto {
   originServerTs: number;
   type: string;
   body: string;
-  formattedBody?: string;
+  formattedBody?: string; // САНИТИЗИРОВАТЬ перед рендером; `{@html}` напрямую запрещён (stored XSS)
   isEncrypted: boolean;
   syncState: SyncState;
   decryptionError?: string;
@@ -160,7 +160,7 @@ export interface IMultiTabService {
   initMasterLock(userId: string, deviceId: string): Promise<void>;
   isMaster(): boolean;
   requestTokenFromMaster(userId: string): Promise<string | null>;
-  sendProxyCommand(command: string, payload: any): Promise<boolean>; // ACK wait 500ms
+  sendProxyCommand(command: string, payload: unknown): Promise<boolean>; // ACK wait 500ms
 }
 
 ```
@@ -185,6 +185,8 @@ export interface ISyncFilterService {
 ```
 export interface IPromoteService {
   // Атомарный promote из pendingEvents в events в рамках db.transaction('rw')
+  // ВАЖНО: обязательные поля (originServerTs, sender, type, content, isEncrypted)
+  // валидируются в рантайме перед записью — некорректные данные отклоняются.
   promotePendingToSynced(
     userId: string,
     roomId: string,
@@ -213,6 +215,13 @@ export async function promotePendingToSynced(
   eventId: string,
   syncedData: Partial<EventModel>
 ): Promise<void> {
+  // Валидация обязательных полей в рантайме (недоверенные данные из сети)
+  const required = ['originServerTs', 'sender', 'type', 'content', 'isEncrypted'];
+  for (const field of required) {
+    if (typeof syncedData[field as keyof EventModel] === 'undefined') {
+      throw new TypeError(`promotePendingToSynced: required field "${field}" is missing`);
+    }
+  }
   const userAndTxnId = `${userId}:${txnId}`;
 
   await db.transaction('rw', [db.pendingEvents, db.events], async () => {
