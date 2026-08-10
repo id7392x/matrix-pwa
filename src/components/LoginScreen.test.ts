@@ -5,9 +5,10 @@ import { mount } from 'svelte'
 
 import LoginScreen from '$components/LoginScreen.svelte'
 import { accountManager } from '$lib/accountManager'
+import { startLegacySync } from '$lib/legacySync'
 import { uiStore } from '$stores/uiStore.svelte'
 
-vi.mock('$lib/demoSync', () => ({ startDemoSync: vi.fn() }))
+vi.mock('$lib/legacySync', () => ({ startLegacySync: vi.fn().mockResolvedValue(undefined) }))
 
 describe('LoginScreen', () => {
   beforeEach(() => {
@@ -45,6 +46,7 @@ describe('LoginScreen', () => {
         isPrimary: true,
       })
       expect(tokenSpy).toHaveBeenCalledWith('@alice:example.org', 'secret-token')
+      expect(startLegacySync).toHaveBeenCalledWith('@alice:example.org')
       expect(uiStore.screen).toEqual({ name: 'rooms' })
     })
   })

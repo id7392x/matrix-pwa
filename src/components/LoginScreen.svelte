@@ -1,6 +1,6 @@
 <script lang="ts">
   import { accountManager } from '$lib/accountManager'
-  import { startDemoSync } from '$lib/demoSync'
+  import { startLegacySync } from '$lib/legacySync'
   import { authStore } from '$stores/authStore.svelte'
   import { uiStore } from '$stores/uiStore.svelte'
 
@@ -21,7 +21,9 @@
     await accountManager.addAccount({ userId: trimmedUserId, homeserver, deviceId, isPrimary: true })
     accountManager.setAccessToken(trimmedUserId, trimmedToken)
     authStore.signIn(trimmedUserId, deviceId, homeserver, trimmedToken)
-    startDemoSync(trimmedUserId)
+    void startLegacySync(trimmedUserId).catch((error) => {
+      console.error('legacy sync start failed', error)
+    })
     uiStore.openRooms()
   }
 </script>

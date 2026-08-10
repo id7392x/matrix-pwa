@@ -71,4 +71,14 @@ describe('BatchedStoreManager', () => {
     manager.reset()
     expect(manager.events).toHaveLength(0)
   })
+
+  it('ignores events with an id already delivered, so repeat syncs do not duplicate rows', () => {
+    const manager = new BatchedStoreManager(instantScheduler())
+    manager.pushEvents([evt('$1'), evt('$2')])
+    manager.flushToUI()
+    manager.pushEvents([evt('$2'), evt('$3')])
+    manager.flushToUI()
+
+    expect(manager.events.map((e) => e.id)).toEqual(['$1', '$2', '$3'])
+  })
 })

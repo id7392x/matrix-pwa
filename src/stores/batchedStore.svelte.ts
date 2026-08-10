@@ -14,6 +14,7 @@ function defaultScheduler(fn: () => void): void {
 export class BatchedStoreManager {
   events = $state<EventDto[]>([])
   private buffer: EventDto[] = []
+  private pushedIds: Record<string, true> = {}
   private scheduled = false
   private readonly schedule: Scheduler
 
@@ -22,7 +23,11 @@ export class BatchedStoreManager {
   }
 
   pushEvents(events: EventDto[]): void {
-    this.buffer.push(...events)
+    for (const event of events) {
+      if (this.pushedIds[event.id]) continue
+      this.pushedIds[event.id] = true
+      this.buffer.push(event)
+    }
     if (this.scheduled) return
     this.scheduled = true
     this.schedule(() => {
@@ -45,6 +50,7 @@ export class BatchedStoreManager {
   reset(): void {
     this.buffer = []
     this.scheduled = false
+    this.pushedIds = {}
     this.events = []
   }
 }
