@@ -1,72 +1,71 @@
-# Handoff — Matrix PWA (Svelte 5)
+# Handoff — matrix-pwa (Svelte 5 Matrix-клиент)
 
-## Context
+> Для свежего агента. Полные требования и решения — в `AGENTS.md` и `docs/00–04`; этот документ описывает только состояние, нюансы и следующие шаги, которых нет в артефактах.
 
-PWA Matrix-клиент на Svelte 5 (Runes), TS `strict`, Dexie.js 4, Vitest. Разработка ведётся по Roadmap v2.0 вертикальными слайсами `Crypto/Sync → IndexedDB → Runes-сторы → UI`. Все guardrails и требования — в `AGENTS.md` и `docs/` (`00-PRINCIPLES.md`, `01-ARCHITECTURE.md`, `02-DATA-MODEL.md`, `03-REFERENCE-CODE.md`).
+## Состояние репозитория
 
-## Репозиторий
+- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, дерево **чистое**, HEAD = `3918901`.
+- Последние коммиты: `3918901` (.gitignore .env), `a820b87` (pre-commit гейт), `6304173` (фикс спеки 02), `2bb7b46` (repo-map), `f9eb084` (roadmap 1/4), `30d777f` (RoomDto), `92ae649` (доменный слой), `61a2ddc` (docs move).
+- Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` 50/50, `pnpm run lint` чисто. **Pre-commit хук теперь автоматический** — прогоняется сам на каждом коммите.
+- `git remote` **отсутствует** → GitHub Actions негде запускать; CI настраивать не нужно, пока не появится remote. Локальный гейт уже автоматизирован.
+- При каждом коммите git печатает предупреждение про автоматически настроенную git-идентичность (имя хоста в email) — **безвредно, игнорировать**, не менять git config без запроса.
 
-- Рабочая директория: `/Users/macos/Documents/OpenCode/matrix-pwa`
-- Рабочее дерево: есть незакоммиченные изменения доменного слоя (см. ниже), коммит не делался.
-- HEAD до слайса: `1b48ac8`.
+## Что было сделано в этой сессии (детали — в коммитах выше)
 
-## Что сделано и закоммичено
+1. **Фикс спеки `docs/02-DATA-MODEL.md`** (коммит `6304173`). По итогам ревью стороннего ИИ-агента синхронизировал 02 с фактической схемой (`src/storage/db.ts`, `docs/03-REFERENCE-CODE.md`). Важно: агент подсветил один рассинхрон, а нашлось **три**:
+   - PK `events`: было `eventId` → стало составной `[userId+roomId+eventId]` (+ проза §3 и §6.1).
+   - PK `pendingEvents`: было `txnId` → стало `userAndTxnId = ${userId}:${txnId}`.
+   - Индекс `events`: было `[userId+roomId+txnId]` → стало `[userId+txnId]`.
+   - Код и тесты не менялись — они уже были на составных ключах; менялась только документация.
+2. **Pre-commit гейт** (коммит `a820b87`): `simple-git-hooks`, конфиг в `package.json`, `"prepare": "simple-git-hooks"`, плюс `allowBuilds: simple-git-hooks: true` в `pnpm-workspace.yaml`.
+   - **Готча (важно):** pnpm v10+ блокирует build-скрипты зависимостей. Без `allowBuilds` в `pnpm-workspace.yaml` каждый `pnpm install` падает с `ERR_PNPM_IGNORED_BUILDS`. Уже решено — не ломать.
+3. **`.gitignore`** (коммит `3918901`): добавлен блок `.env`/`.env.*` с `!.env.example` (раньше покрывался только `*.local`; на Слайсе 2 в env появятся homeserver/токены).
+4. **Roadmap `docs/04` §5 (Слайс 2)** — добавлен пункт: первое импортирование `matrix-js-sdk` обязано проходить в Vitest (shim/`vi.mock` при необходимости).
 
-| Коммит | Что |
-|---|---|
-| `2553b8e`, `c582197`, `1d3e4fe` | Stage 0: TS strict, алиасы `$lib/$storage/...`, Vitest, Tailwind glassmorphism, AGENTS.md guardrails |
-| `d386b44` | Первый Dexie 4 schema + Web Locks wrapper (`src/storage/webLock.ts`) + первый room store |
-| `1b48ac8` | Multi-account schema на составных ключах + `promotePendingToSynced` + миграция roomStore под новую модель |
-| `e5be178` | HANDOFF.md + путь в AGENTS.md на `docs/` |
+## Фактология по ревью стороннего агента (уже учтена)
 
-## Текущий слайс (не закоммичен) — Доменный слой синхронизации
+- **WASM-миф:** ядро `matrix-js-sdk` НЕ тянет vodozemac/WASM; WASM грузится лениво через `initRustCrypto` (Слайс 4). Поэтому **Vite worker-конфиг заранее не нужен** — YAGNI до Слайса 4. Реальная забота Слайса 2 — импорт SDK в happy-dom.
+- **CI:** оправдан только после появления git remote.
 
-Зависимость: добавлен `matrix-js-sdk` 42.1.0 (используется с E2EE-слайсом, см. ниже).
+## Следующий шаг — Слайс 1 «UI на моках» (`docs/04-ROADMAP.md` §4)
 
-Новые файлы:
+Цель: экран логина, список комнат и лента поверх `MockSyncProvider → SyncOrchestrator → batchedStore/roomStore`. Источник требований: TDD-контракт §4.4 (5 тестов), DoD §4.5.
 
-- `src/types/dto.ts` — `EventDto`, `RoomDto` (контракт 03-REFERENCE-CODE §3). `RoomDto` задействован: `roomStore` отдаёт UI только DTO (маппер `toRoomDto`, без `userId`/`userAndRoomId`/`membership`/`summaryDto`; `lastEventText` пока не заполняется).
-- `src/stores/batchedStore.svelte.ts` — `BatchedStoreManager`: `pushEvents`/`flushToUI`, батч через rAF (активная вкладка) или `setTimeout(0)` (фон); `$state`-события для UI. Планировщик инжектится в конструктор (тесты).
-- `src/sync/ISyncProvider.ts` — `ISyncProvider` (`start`/`stop`/`onSync`), сырые типы `SyncResponse`/`SyncRawEvent`/`SyncJoinedRoom` (JSON-форма, близкая к `/sync`). Замена на `LegacySyncProvider` не трогает домен (01-АРХ §5).
-- `src/sync/mockSyncProvider.ts` — мок, отдаёт фикстуры последовательно на `start()`.
-- `src/sync/PendingQueueService.ts` — оптимистичные сообщения: `create` (txnId → `pendingEvents` + active-set), `restore` при старте (sending→pending, retry>=3→failed), `isActive`, `promote` (атомарный dual-path через `promotePendingToSynced`), `recordFailure` (инкремент retry, fail на лимите 3).
-- `src/sync/SyncOrchestrator.ts` — единственное место raw→DTO: комнаты → `RoomModel`, события → `EventModel`; эхо с активным `txnId` → только promote; DTO пушит в `BatchedStoreManager`.
-- `src/lib/accountManager.ts` — `AccountManager` (§4.1): upsert аккаунтов, `getActiveAccount`, `switchAccount` (флип `isPrimary`), токен только в sessionStorage (ключ `mx_token:${userId}`, не в IndexedDB).
+Что уже готово под этот слайс (по пути не переделывать):
+- `src/stores/uiStore.svelte.ts` — **отсутствует**; навигация на нативном `location.hash` (без роутера, решение зафиксировано в roadmap).
+- Комнаты уже в UI-терминах: `src/stores/roomStore.svelte.ts` + экспорт `toRoomDto`.
+- Лента: `batchedStore.svelte.ts` (`$state.events`, `flushToUI`).
+- UTD-плашка вынесена из Слайса 1 в Слайс 4 — не добавлять.
 
-Тесты: `batchedStore.svelte.test.ts` (5), `PendingQueueService.test.ts` (5), `SyncOrchestrator.test.ts` (4), `accountManager.test.ts` (5), `roomStore.test.ts` (7, включая `toRoomDto`).
-
-### Состояние проверок (гейт соблюдён)
-
-`pnpm run check` — 0 errors, `pnpm test` — 50/50, `pnpm run lint` — clean.
+Порядок: падающий тест → реализация → рефакторинг → гейт → коммит. После сессии обновить `HANDOFF.md` в корне репо и пересобрать `node scripts/repo-map.mjs`.
 
 ## Известные хвосты (deferred)
 
 - `promotePendingToSynced` принимает `Partial<EventModel>` без runtime-валидации обязательных полей.
-- В этом слайсе только `join`-комнаты; invite/leave, пагинация вверх (`timelineGaps`), retention — не реализованы.
-- `BatchedStoreManager` держит только события (`EventDto[]`); комнаты обновляются через `liveQuery` в `roomStore` и попадают в UI как `RoomDto` (DTO-граница закрыта). `messageStore`-обёртки нет и не нужно — `batchedStore.events` уже реактивен.
-- `RoomDto.lastEventText` не выводится (требует чтения `db.events` на комнату) — добавить с UI-превью.
+- В домене только `join`-комнаты; invite/leave, пагинация вверх (`timelineGaps`), retention — не реализованы (будущие слайсы).
 - `filters.ts` (lazy-фильтр) и `IMultiTabService` (handshake/ACK) — не реализованы.
+- `messageStore`-обёртка не нужна — `batchedStore.events` уже реактивен.
+- `RoomDto.lastEventText` не заполняется в `toRoomDto` — нужен запрос `db.events` по комнате; заполнить вместе с UI-превью ленты.
 
-## Вероятные следующие шаги
+## Нюансы проекта
 
-Подробная дорожная карта и ТЗ слайсов — в `docs/04-ROADMAP.md`. Кратко: следующий слайс — **UI на моках** (логин, комнаты, лента поверх `roomStore` + `batchedStore.events`), далее `LegacySyncProvider`, отправка сообщений, E2EE, multi-tab.
-
-1. **UI-слайс**: экраны на Svelte 5 Runes поверх `roomStore` + `batchedStore.events`: список комнат, лента сообщений, логин через `AccountManager` + `MockSyncProvider`.
-2. **LegacySyncProvider**: подключение реального `/sync` через `matrix-js-sdk` (адаптер сырых событий SDK → `SyncResponse`-совместимые типы), вызов `SyncOrchestrator.handleSync`.
-3. **E2EE**: Cold Start Protocol (`createClient → initRustCrypto({storePrefix}) → startClient`), re-decryption, UTD-модель. `matrix-js-sdk` уже в зависимостях.
-4. **Отправка сообщений**: `PendingQueueService.create` + реальный `/send` → `recordFailure`/`promote` по ответу.
+- `matrix-js-sdk` установлен, но в `src/` **ещё не импортируется** (первый импорт случится на Слайсе 2).
+- Инварианты: `any` запрещён, IndexedDB только через Dexie, SDK-объекты не проходят в UI (DTO-граница `docs/01` §6), accessToken только RAM/sessionStorage.
+- `RoomDto.lastEventText` осознанно не заполняется в `toRoomDto` — нужен запрос `db.events` по комнате; заполнить вместе с UI-превью ленты.
+- Хранилище тестов: `fake-indexeddb`, среда `happy-dom`.
+- Полезные команды: `pnpm run check`, `pnpm test`, `pnpm run lint`, `pnpm dev`, `node scripts/repo-map.mjs`.
 
 ## Suggested skills
 
-Загрузить через инструмент `skill` при начале соответствующей работы:
+Следующей сессии (Слайс 1, новый UI-код) предлагается загрузить:
 
-- `handoff` — если текущая сессия завершается и нужен следующий handoff.
-- `detect-stack` — если окружение/стейк не совпадает с описанием выше.
-- `code-review` — ревью изменений слайса относительно `main` до коммита.
-- `diagnosing-bugs` — если падают тесты/чек/линт.
-- `boy-scout-rule` — при правках затронутого кода (blast radius слайса).
-- `git-commit` — для финального коммита слайса (гейт: check + test + lint зелёные).
+- `repo-mapping` — после изменений пересобрать карту (`node scripts/repo-map.mjs`) и обновить `.opencode/repo-map.json`.
+- `git-commit` — атомарные коммиты; помнить про автоматический pre-commit гейт.
+- `code-review` — по окончании слайса прогнать ревью изменений (стандарты + соответствие спекам `docs/04` §4).
+- `frontend-design` — если делать визуальную оболочку экранов логина/комнат/ленты (Tailwind уже подключён).
+- `boy-scout-rule` — при касании существующих файлов домена/сторов.
+- `ponytail` — проект держит ленивый минимальный стиль; перед добавлением любых новых зависимостей (например, роутер) перепроверить необходимость.
 
-## Чувствительные данные
+## Redacted
 
-В проекте и документе нет ключей/паролей/реальной PII — только плейсхолдеры (`@alice:example.org`, `example.org`). Не коммитить реальные `accessToken` (запрещено `AGENTS.md` и `02-DATA-MODEL.md`).
+Почтовый адрес автоконфигурированной git-идентичности, генерируемый из имени хоста, и прочие локальные пути за пределами репозитория не включены (PII/локальные детали). Секретов (ключи, токены, пароли) в сессии не было.
