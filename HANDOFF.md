@@ -4,11 +4,11 @@
 
 ## Состояние репозитория
 
-- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, дерево **чистое**, HEAD = `3918901`.
-- Последние коммиты: `3918901` (.gitignore .env), `a820b87` (pre-commit гейт), `6304173` (фикс спеки 02), `2bb7b46` (repo-map), `f9eb084` (roadmap 1/4), `30d777f` (RoomDto), `92ae649` (доменный слой), `61a2ddc` (docs move).
+- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, запушена в `origin` (`github.com/id7392x/matrix-pwa`). История переписана и подписана (SSH, GitHub: Verified): 8 код-коммитов — автор `id7392x` + соавтор opencode, 8 док-коммитов — автор `OpenCode <opencode-agent[bot]@users.noreply.github.com>`. Правила коммитов — в `COMMITS.md` (обязателен к прочтению перед каждым коммитом).
+- Последние коммиты — см. `git log --oneline` (все темы в Conventional Commits, трейлер `Co-authored-by` ровно на 8 код-коммитах).
 - Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` 50/50, `pnpm run lint` чисто. **Pre-commit хук теперь автоматический** — прогоняется сам на каждом коммите.
-- `git remote` **отсутствует** → GitHub Actions негде запускать; CI настраивать не нужно, пока не появится remote. Локальный гейт уже автоматизирован.
-- При каждом коммите git печатает предупреждение про автоматически настроенную git-идентичность (имя хоста в email) — **безвредно, игнорировать**, не менять git config без запроса.
+- Remote: `origin` = `https://github.com/id7392x/matrix-pwa.git`, `main` запушен. CI не настроен — локальный гейт уже автоматизирован.
+- Git-идентичность настроена явно (`user.name`/`user.email`), `commit.gpgsign=true` с SSH — каждый коммит подписывается автоматически; предупреждение про автоконфигурированную identity больше не печатается.
 
 ## Что было сделано в этой сессии (детали — в коммитах выше)
 
