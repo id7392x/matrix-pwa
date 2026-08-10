@@ -27,10 +27,11 @@
 | Доменный слой синхронизации | `629c6f4` | `ISyncProvider`+мок, `SyncOrchestrator`, `PendingQueueService`, `BatchedStoreManager`, `AccountManager`, DTO-типы, `matrix-js-sdk` |
 | DTO-граница комнат | `6420734` | `roomStore` отдаёт UI только `RoomDto` (`toRoomDto`) |
 | Слайс 1 — UI на моках | `57ddc4c` | `uiStore` (hash-навигация), `LoginScreen`, `RoomList`/`RoomListItem`, `Timeline`/`TimelineItem`, `App.svelte`, demo-sync `startDemoSync` |
+| Хардненинг безопасности | `8991f36`, `502ff63` | runtime-валидация `promotePendingToSynced`, guard `decodeURIComponent` в `uiStore`, `isEncrypted` из типа события |
 
 ### Текущее состояние проверок
 
-`pnpm run check` — 0 errors, `pnpm test` — 64/64, `pnpm run lint` — clean.
+`pnpm run check` — 0 errors, `pnpm test` — 68/68, `pnpm run lint` — clean.
 
 ---
 
@@ -103,6 +104,7 @@
 ### 5.2. Ключевые решения
 
 - Адаптер: `matrix-js-sdk` события (`MatrixEvent`, `Room`) → сырые JSON-типы `SyncResponse`/`SyncRawEvent`/`SyncJoinedRoom` из `src/sync/ISyncProvider.ts`. Маппинг реальных полей (`m.room.name` state-событий, `m.direct` accountData) — ответственность провайдера.
+- Зашифрованные события: `SyncOrchestrator` помечает `isEncrypted = raw.type === 'm.room.encrypted'` (контракт уже реализован); шифр-конверт `content` сохраняется как есть, дешифровка и замена конверта — Слайс 4.
 - `createClient` без crypto (crypto подключается в слайсе 4).
 - Авторизация: токен из `AccountManager.getAccessToken` (RAM/sessionStorage), в БД не попадает.
 - Первый импорт `matrix-js-sdk` обязан проходить в Vitest (при необходимости — тестовый shim/`vi.mock`). WASM/vodozemac на этом слайсе не задействуется (`initRustCrypto` только в слайсе 4); Vite-воркеры заранее не конфигурируем.
@@ -112,6 +114,7 @@
 1. Адаптер `MatrixRoom → SyncJoinedRoom`: имя из `m.room.name`, иначе из heroes/fallback; `unread_notifications` → счётчики.
 2. `MatrixEvent → SyncRawEvent`: `txn_id` пробрасывается (для dual-path), `content` — сырой JSON.
 3. Провайдер собирает `next_batch` из sync-ответа.
+4. `SyncOrchestrator`: `m.room.encrypted` событие пишется с `isEncrypted: true` (и в БД, и в DTO), `body` пустой, конверт сохранён как есть.
 
 ### 5.4. DoD
 
@@ -156,6 +159,7 @@ E2EE по 00-PRINCIPLES §3.3 и 01-АРХ §4: строгий порядок `c
 
 - storePrefix: `matrix-js-sdk:crypto:${userId}:${deviceId}` (изоляция на аккаунт+устройство, общий store запрещён).
 - Обработка событий `/sync` — только после завершения `initRustCrypto`.
+- Content-семантика зашифрованных событий: при `Event.decrypted` `EventModel.content` переписывается расшифрованным, `isEncrypted: true`, `decryptionError` при UTD. После расшифровки шифр-конверт (`m.room.encrypted` content) в `events` не хранится (минимизация персистенции).
 - UTD: Temporary (авто-запрос `m.room_key_request`) → Permanent через 30 сек без ответа (плашка в UI) → Re-decryption при приходе ключей (подписка `Event.decrypted` → повторный проход → обновление DTO через `BatchedStoreManager`).
 - `EventModel.decryptionError`, `isEncrypted`, `content` уже расшифрованный — контракт готов (03 §1).
 - `$crypto/e2ee.ts` — реализация `IE2EEService` (03 §4.3).
@@ -178,6 +182,7 @@ E2EE по 00-PRINCIPLES §3.3 и 01-АРХ §4: строгий порядок `c
 
 ## 8. Слайс 5 — История, retention, медиа-кэш
 
+- **Предусловие (до первого рендера `formattedBody`):** санитизация удалённого HTML через DOMPurify (03 §3) и внедрение строгого CSP по 01-АРХ §7 (prod-заголовки или prod-only `<meta>`, не статический CSP в dev — иначе ломается HMR). Рендер `{@html}` разрешён только после санитизации.
 - Пагинация вверх через `timelineGaps` + `/messages` (02-DATA §2, `timelineGaps`).
 - Retention: не более 300 последних событий на комнату, защита Reply/Thread (stub-снимки), приоритет текста над медиа.
 - Media Cache: Cache Storage + LRU/FIFO, очистка по retention/квоте/`QuotaExceededError`.
