@@ -48,7 +48,7 @@ describe('authStore', () => {
     expect(stopLegacySync).toHaveBeenCalledWith('@alice:example.org')
   })
 
-  it('restores a persisted session on reload and resumes sync', async () => {
+  it('restores a persisted session on reload and resumes sync, returns true', async () => {
     await db.accounts.add({
       userId: '@alice:example.org',
       homeserver: 'example.org',
@@ -57,8 +57,9 @@ describe('authStore', () => {
     })
     accountManager.setAccessToken('@alice:example.org', 'secret-token')
 
-    await authStore.restoreSession()
+    const resolved = await authStore.restoreSession()
 
+    expect(resolved).toBe(true)
     expect(authStore.isAuthenticated).toBe(true)
     expect(authStore.userId).toBe('@alice:example.org')
     expect(authStore.deviceId).toBe('DEV1')
@@ -66,9 +67,10 @@ describe('authStore', () => {
     expect(startLegacySync).toHaveBeenCalledWith('@alice:example.org')
   })
 
-  it('does nothing when no session is persisted', async () => {
-    await authStore.restoreSession()
+  it('returns false when no session is persisted', async () => {
+    const resolved = await authStore.restoreSession()
 
+    expect(resolved).toBe(false)
     expect(authStore.isAuthenticated).toBe(false)
     expect(startLegacySync).not.toHaveBeenCalled()
   })

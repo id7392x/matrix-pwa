@@ -17,16 +17,17 @@ class AuthStore {
     this.accessToken = accessToken
   }
 
-  async restoreSession(): Promise<void> {
+  async restoreSession(): Promise<boolean> {
     const account = await accountManager.getActiveAccount()
-    if (!account) return
+    if (!account) return false
     const token = accountManager.getAccessToken(account.userId)
-    if (!token) return
+    if (!token) return false
     this.userId = account.userId
     this.deviceId = account.deviceId
     this.homeServer = account.homeserver
     this.accessToken = token
     void startLegacySync(account.userId)
+    return true
   }
 
   signOut(): void {

@@ -6,8 +6,10 @@
   import { uiStore } from '$stores/uiStore.svelte'
 
   uiStore.init()
-  void authStore.restoreSession().then(() => {
-    if (authStore.isAuthenticated && uiStore.screen.name === 'login') uiStore.openRooms()
+  void authStore.restoreSession().then((resolved) => {
+    if (resolved && uiStore.screen.name === 'login') uiStore.openRooms()
+  }).catch((err) => {
+    console.error('session restore failed', err)
   })
 
   const screen = $derived(uiStore.screen)
