@@ -274,4 +274,47 @@ describe('LegacySyncProvider', () => {
     client.emit(ClientEvent.Sync, SyncState.Reconnecting, null, {})
     expect(listener).not.toHaveBeenCalled()
   })
+
+  it('ignores the Prepared emission of the first sync cycle (no double work)', async () => {
+    const client = await setup()
+    const room = makeRoom(client)
+    await client.store.storeRoom(room)
+
+    const { listener } = await startedProvider(client)
+
+    client.emit(ClientEvent.Sync, SyncState.Prepared, null, { nextSyncToken: 'nb1' })
+    client.emit(ClientEvent.Sync, SyncState.Syncing, SyncState.Prepared, {
+      nextSyncToken: 'nb1',
+    })
+
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect((listener.mock.calls[0][0] as SyncResponse).next_batch).toBe('nb1')
+  })
+
+  it('survives malformed m.direct account data', async () => {
+    const client = await setup()
+    const room = makeRoom(client)
+    await client.store.storeRoom(room)
+    client.store.storeAccountDataEvents([
+      new MatrixEvent({
+        type: EventType.Direct,
+        content: {
+          [alice]: [roomId],
+          [alice + '2']: 'not-an-array',
+          [alice + '3']: ['@ok:example.org', 42],
+        },
+      }),
+    ])
+
+    const { listener } = await startedProvider(client)
+
+    expect(() => {
+      client.emit(ClientEvent.Sync, SyncState.Syncing, SyncState.Prepared, {
+        nextSyncToken: 'nb1',
+      })
+    }).not.toThrow()
+
+    const sync = listener.mock.calls[0][0] as SyncResponse
+    expect(sync.rooms.join[roomId].isDirect).toBe(true)
+  })
 })

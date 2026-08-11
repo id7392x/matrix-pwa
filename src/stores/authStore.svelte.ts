@@ -1,3 +1,5 @@
+import { stopLegacySync } from '$lib/legacySync'
+
 class AuthStore {
   userId = $state<string | null>(null)
   deviceId = $state<string | null>(null)
@@ -15,7 +17,10 @@ class AuthStore {
   }
 
   signOut(): void {
-    if (this.userId) sessionStorage.removeItem(`mx_token:${this.userId}`)
+    if (this.userId) {
+      stopLegacySync(this.userId)
+      sessionStorage.removeItem(`mx_token:${this.userId}`)
+    }
     this.userId = null
     this.deviceId = null
     this.homeServer = null

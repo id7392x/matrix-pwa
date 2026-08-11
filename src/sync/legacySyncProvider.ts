@@ -4,10 +4,10 @@ import {
   EventType,
   KnownMembership,
   NotificationCountType,
+  SyncState,
   type MatrixClient,
   type MatrixEvent,
   type Room,
-  type SyncState,
   type SyncStateData,
 } from 'matrix-js-sdk'
 
@@ -45,8 +45,9 @@ function directRoomIds(client: MatrixClient): Set<string> {
   if (!accountData) return new Set()
   const ids = new Set<string>()
   for (const rooms of Object.values(accountData.getContent())) {
+    if (!Array.isArray(rooms)) continue
     for (const roomId of rooms) {
-      ids.add(roomId)
+      if (typeof roomId === 'string') ids.add(roomId)
     }
   }
   return ids
@@ -72,11 +73,12 @@ export class LegacySyncProvider implements ISyncProvider {
   }
 
   private readonly handleSync = (
-    _state: SyncState,
+    state: SyncState,
     _prevState: SyncState | null,
     data?: SyncStateData,
   ): void => {
     if (!data?.nextSyncToken) return
+    if (state !== SyncState.Syncing) return
 
     const directRooms = directRoomIds(this.client)
     const join: Record<string, SyncJoinedRoom> = {}
