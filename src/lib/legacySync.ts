@@ -18,8 +18,11 @@ export async function startLegacySync(userId: string): Promise<LegacySyncHandle>
   const running = activeSyncs.get(userId)
   if (running) running()
 
+  const homeserver = account.homeserver.includes('://')
+    ? account.homeserver
+    : `https://${account.homeserver}`
   const client = createClient({
-    baseUrl: account.homeserver,
+    baseUrl: homeserver,
     userId,
     deviceId: account.deviceId,
     accessToken,

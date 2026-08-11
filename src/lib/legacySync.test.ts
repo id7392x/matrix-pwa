@@ -108,6 +108,22 @@ describe('legacy sync integration', () => {
     accountManager.setAccessToken(alice, 'secret-token')
   }
 
+  it('normalizes a homeserver without protocol to https before creating the client', async () => {
+    await db.accounts.add({
+      userId: alice,
+      homeserver: 'matrix.org',
+      deviceId: 'DEV1',
+      isPrimary: true,
+    })
+    accountManager.setAccessToken(alice, 'secret-token')
+
+    await startLegacySync(alice)
+
+    expect(vi.mocked(createClient)).toHaveBeenCalledWith(
+      expect.objectContaining({ baseUrl: 'https://matrix.org' }),
+    )
+  })
+
   it('stops the previous sync client when starting again for the same user', async () => {
     await seedSession()
 
