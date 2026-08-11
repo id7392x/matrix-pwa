@@ -1,14 +1,21 @@
+import 'fake-indexeddb/auto'
+
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { stopLegacySync } from '$lib/legacySync'
+import { accountManager } from '$lib/accountManager'
+import { startLegacySync, stopLegacySync } from '$lib/legacySync'
+import { db } from '$storage/db'
 import { authStore } from '$stores/authStore.svelte'
 
 vi.mock('$lib/legacySync', () => ({ startLegacySync: vi.fn(), stopLegacySync: vi.fn() }))
 
 describe('authStore', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     sessionStorage.clear()
+    await db.accounts.clear()
     authStore.reset()
+    vi.mocked(startLegacySync).mockClear()
+    vi.mocked(stopLegacySync).mockClear()
   })
 
   it('starts signed out', () => {
@@ -39,5 +46,30 @@ describe('authStore', () => {
     vi.mocked(stopLegacySync).mockClear()
     authStore.signOut()
     expect(stopLegacySync).toHaveBeenCalledWith('@alice:example.org')
+  })
+
+  it('restores a persisted session on reload and resumes sync', async () => {
+    await db.accounts.add({
+      userId: '@alice:example.org',
+      homeserver: 'example.org',
+      deviceId: 'DEV1',
+      isPrimary: true,
+    })
+    accountManager.setAccessToken('@alice:example.org', 'secret-token')
+
+    await authStore.restoreSession()
+
+    expect(authStore.isAuthenticated).toBe(true)
+    expect(authStore.userId).toBe('@alice:example.org')
+    expect(authStore.deviceId).toBe('DEV1')
+    expect(authStore.accessToken).toBe('secret-token')
+    expect(startLegacySync).toHaveBeenCalledWith('@alice:example.org')
+  })
+
+  it('does nothing when no session is persisted', async () => {
+    await authStore.restoreSession()
+
+    expect(authStore.isAuthenticated).toBe(false)
+    expect(startLegacySync).not.toHaveBeenCalled()
   })
 })

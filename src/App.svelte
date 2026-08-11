@@ -2,9 +2,13 @@
   import LoginScreen from '$components/LoginScreen.svelte'
   import RoomList from '$components/RoomList.svelte'
   import Timeline from '$components/Timeline.svelte'
+  import { authStore } from '$stores/authStore.svelte'
   import { uiStore } from '$stores/uiStore.svelte'
 
   uiStore.init()
+  void authStore.restoreSession().then(() => {
+    if (authStore.isAuthenticated && uiStore.screen.name === 'login') uiStore.openRooms()
+  })
 
   const screen = $derived(uiStore.screen)
 </script>

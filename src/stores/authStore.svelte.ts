@@ -1,4 +1,5 @@
-import { stopLegacySync } from '$lib/legacySync'
+import { accountManager } from '$lib/accountManager'
+import { startLegacySync, stopLegacySync } from '$lib/legacySync'
 
 class AuthStore {
   userId = $state<string | null>(null)
@@ -14,6 +15,18 @@ class AuthStore {
     this.deviceId = deviceId
     this.homeServer = homeServer
     this.accessToken = accessToken
+  }
+
+  async restoreSession(): Promise<void> {
+    const account = await accountManager.getActiveAccount()
+    if (!account) return
+    const token = accountManager.getAccessToken(account.userId)
+    if (!token) return
+    this.userId = account.userId
+    this.deviceId = account.deviceId
+    this.homeServer = account.homeserver
+    this.accessToken = token
+    void startLegacySync(account.userId)
   }
 
   signOut(): void {
