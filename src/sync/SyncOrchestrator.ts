@@ -1,6 +1,6 @@
 import { db, type EventModel, type RoomModel } from '$storage/db'
 import type { BatchedStoreManager } from '$stores/batchedStore.svelte'
-import type { EventDto } from '$types/dto'
+import { toEventDto, type EventDto } from '$types/dto'
 import type { SyncJoinedRoom, SyncRawEvent, SyncResponse } from './ISyncProvider'
 import type { PendingQueueService } from './PendingQueueService'
 
@@ -18,8 +18,16 @@ export class SyncOrchestrator {
     for (const [roomId, room] of Object.entries(sync.rooms.join)) {
       await this.upsertRoom(roomId, room)
       for (const raw of room.timeline?.events ?? []) {
-        await this.upsertEvent(roomId, raw)
-        dtos.push(this.toDto(roomId, raw))
+        // C11: one malformed event must not drop the rest of the batch.
+        try {
+          await this.upsertEvent(roomId, raw)
+          // S1: state events live in the DB but never render as blank rows.
+          if (raw.type === 'm.room.message' || raw.type === 'm.room.encrypted') {
+            dtos.push(this.toDto(roomId, raw))
+          }
+        } catch (error) {
+          console.error(`sync: failed to persist event ${raw.event_id}`, error)
+        }
       }
     }
     this.store.pushEvents(dtos)
@@ -27,7 +35,10 @@ export class SyncOrchestrator {
 
   private async upsertRoom(roomId: string, room: SyncJoinedRoom): Promise<void> {
     const timeline = room.timeline?.events ?? []
-    const lastEventTs = timeline.length > 0 ? Math.max(...timeline.map((e) => e.origin_server_ts)) : 0
+    const computed = timeline.length > 0 ? Math.max(...timeline.map((e) => e.origin_server_ts)) : 0
+    // C8: an empty (or ts-less) timeline must not clobber the stored last event time.
+    const existing = await db.rooms.get(`${this.userId}:${roomId}`)
+    const lastEventTs = Math.max(computed, existing?.lastEventTs ?? 0)
     const model: RoomModel = {
       userAndRoomId: `${this.userId}:${roomId}`,
       userId: this.userId,
@@ -44,7 +55,9 @@ export class SyncOrchestrator {
 
   private async upsertEvent(roomId: string, raw: SyncRawEvent): Promise<void> {
     const txnId = raw.unsigned?.transaction_id ?? (typeof raw.txn_id === 'string' ? raw.txn_id : undefined)
-    if (txnId && this.pendingQueue.isActive(txnId)) {
+    // C4: always promote when a txnId is present, regardless of queue activity, so a
+    // stale/restored pending row can never orphan (promote is idempotent).
+    if (txnId) {
       await this.pendingQueue.promote(this.userId, roomId, txnId, raw.event_id, {
         originServerTs: raw.origin_server_ts,
         sender: raw.sender,
@@ -72,21 +85,16 @@ export class SyncOrchestrator {
 
   private toDto(roomId: string, raw: SyncRawEvent): EventDto {
     const txnId = raw.unsigned?.transaction_id ?? (typeof raw.txn_id === 'string' ? raw.txn_id : undefined)
-    const body = typeof raw.content.body === 'string' ? raw.content.body : ''
-    const formattedBody =
-      typeof raw.content.formatted_body === 'string' ? raw.content.formatted_body : undefined
-    return {
+    return toEventDto({
       id: raw.event_id,
       roomId,
       sender: raw.sender,
       originServerTs: raw.origin_server_ts,
       type: raw.type,
-      body,
-      formattedBody,
-      isEncrypted: isEncrypted(raw),
+      content: raw.content,
       syncState: txnId ? (this.pendingQueue.isActive(txnId) ? 'sending' : 'synced') : 'synced',
       txnId,
-      errorText: undefined,
-    }
+      isEncrypted: isEncrypted(raw),
+    })
   }
 }

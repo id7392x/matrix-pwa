@@ -1,7 +1,7 @@
 import { db, type PendingEventModel } from '$storage/db'
 import { promotePendingToSynced } from '$storage/promote'
 import type { BatchedStoreManager } from '$stores/batchedStore.svelte'
-import type { EventDto } from '$types/dto'
+import { toEventDto } from '$types/dto'
 import type { MatrixClient, TimelineEvents } from 'matrix-js-sdk'
 
 const DEFAULT_RETRY_LIMIT = 3
@@ -12,9 +12,13 @@ export function getActiveQueue(): PendingQueueService | undefined {
   return activeQueues.at(-1)
 }
 
-export function registerQueue(queue: PendingQueueService): PendingQueueService {
+export function registerQueue(queue: PendingQueueService): void {
   activeQueues.push(queue)
-  return queue
+}
+
+export function unregisterQueue(queue: PendingQueueService): void {
+  const index = activeQueues.indexOf(queue)
+  if (index !== -1) activeQueues.splice(index, 1)
 }
 
 export class PendingQueueService {
@@ -26,8 +30,8 @@ export class PendingQueueService {
     private readonly store?: BatchedStoreManager,
   ) {}
 
-  async restore(): Promise<void> {
-    const rows = await db.pendingEvents.toArray()
+  async restore(userId: string): Promise<void> {
+    const rows = await db.pendingEvents.where('userId').equals(userId).toArray()
     for (const row of rows) {
       let status = row.status
       if (row.status === 'sending') {
@@ -43,17 +47,35 @@ export class PendingQueueService {
           status = 'pending'
         }
       }
-      if (status !== 'failed') {
-        this.activeTxnIds.add(row.txnId)
+      if (status === 'failed') {
+        this.publishOptimistic(
+          row.userId,
+          row.roomId,
+          row.content,
+          row.txnId,
+          'failed',
+          status === 'failed' ? row.errorText : undefined,
+        )
+        continue
       }
-      this.publishOptimistic(
-        row.userId,
-        row.roomId,
-        row.content,
-        row.txnId,
-        status === 'failed' ? 'failed' : 'sending',
-        status === 'failed' ? row.errorText : undefined,
-      )
+      this.activeTxnIds.add(row.txnId)
+      this.publishOptimistic(row.userId, row.roomId, row.content, row.txnId, 'sending')
+      // C7: actually resend restored events, not just show them optimistically.
+      if (!this.client) continue
+      try {
+        await this.sendAndPromote(row.userId, row.roomId, row.content, row.txnId)
+        this.activeTxnIds.delete(row.txnId)
+      } catch (error) {
+        await this.recordFailure(row.userId, row.txnId, error)
+        this.publishOptimistic(
+          row.userId,
+          row.roomId,
+          row.content,
+          row.txnId,
+          'failed',
+          this.errorMessage(error),
+        )
+      }
     }
   }
 
@@ -202,6 +224,9 @@ export class PendingQueueService {
       content,
       isEncrypted: false,
     })
+    // C12: flip the optimistic bubble to synced right away instead of waiting
+    // for the /sync echo (idempotent with the later echo via replaceByTxnId).
+    this.publishOptimistic(userId, roomId, content, txnId, 'synced')
     return response.event_id
   }
 
@@ -210,25 +235,23 @@ export class PendingQueueService {
     roomId: string,
     content: Record<string, unknown>,
     txnId: string,
-    syncState: 'sending' | 'failed',
+    syncState: 'sending' | 'failed' | 'synced',
     errorText?: string,
   ): void {
     if (!this.store) return
-    const dto: EventDto = {
-      id: `local-${txnId}`,
-      roomId,
-      sender: userId,
-      originServerTs: Date.now(),
-      type: 'm.room.message',
-      body: typeof content.body === 'string' ? content.body : '',
-      formattedBody:
-        typeof content.formatted_body === 'string' ? content.formatted_body : undefined,
-      isEncrypted: false,
-      syncState,
-      txnId,
-      errorText,
-    }
-    this.store.pushEvents([dto])
+    this.store.pushEvents([
+      toEventDto({
+        id: `local-${txnId}`,
+        roomId,
+        sender: userId,
+        originServerTs: Date.now(),
+        type: 'm.room.message',
+        content,
+        syncState,
+        txnId,
+        errorText,
+      }),
+    ])
   }
 
   private errorMessage(error: unknown): string {
@@ -237,9 +260,5 @@ export class PendingQueueService {
       : error instanceof Error
         ? error.message
         : 'Неизвестная ошибка'
-  }
-
-  reset(): void {
-    this.activeTxnIds.clear()
   }
 }

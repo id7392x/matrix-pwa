@@ -11,7 +11,9 @@ const alice = '@alice:example.org'
 const roomId = '!general:example.org'
 
 function instantStore(): BatchedStoreManager {
-  return new BatchedStoreManager((fn: () => void) => fn())
+  return new BatchedStoreManager((fn: () => void) => {
+    fn()
+  })
 }
 
 describe('PendingQueueService', () => {
@@ -59,7 +61,7 @@ describe('PendingQueueService', () => {
     ])
 
     const queue = new PendingQueueService()
-    await queue.restore()
+    await queue.restore(alice)
 
     expect(queue.isActive('txn-1')).toBe(true)
     expect(queue.isActive('txn-2')).toBe(true)
@@ -67,6 +69,22 @@ describe('PendingQueueService', () => {
 
     const sending = await db.pendingEvents.get(`${alice}:txn-2`)
     expect(sending?.status).toBe('pending')
+  })
+
+  it('restore only loads pending rows for the given user', async () => {
+    await db.pendingEvents.bulkAdd([
+      { userAndTxnId: `${alice}:txn-a`, txnId: 'txn-a', userId: alice, roomId, content: { body: 'a' }, status: 'pending', createdAt: 1, retryCount: 0 },
+      { userAndTxnId: '@bob:example.org:txn-b', txnId: 'txn-b', userId: '@bob:example.org', roomId, content: { body: 'b' }, status: 'pending', createdAt: 2, retryCount: 0 },
+    ])
+
+    const store = instantStore()
+    const queue = new PendingQueueService(undefined, undefined, store)
+    await queue.restore(alice)
+
+    expect(queue.isActive('txn-a')).toBe(true)
+    expect(queue.isActive('txn-b')).toBe(false)
+    expect(store.events).toHaveLength(1)
+    expect(store.events[0].txnId).toBe('txn-a')
   })
 
   it('marks a sending row as failed during restore when retry limit is exceeded', async () => {
@@ -82,7 +100,7 @@ describe('PendingQueueService', () => {
     })
 
     const queue = new PendingQueueService()
-    await queue.restore()
+    await queue.restore(alice)
 
     const failed = await db.pendingEvents.get(`${alice}:txn-4`)
     expect(failed?.status).toBe('failed')
@@ -167,9 +185,22 @@ describe('PendingQueueService', () => {
       txnId: 'txn-1',
       roomId,
       sender: alice,
-      syncState: 'sending',
+      syncState: 'synced',
       body: 'hi there',
     })
+    expect(sendMessage).toHaveBeenCalledWith(roomId, { body: 'hi there', msgtype: 'm.text' }, 'txn-1')
+  })
+
+  it('marks the optimistic row as synced immediately after a successful send', async () => {
+    const sendMessage = vi.fn().mockResolvedValue({ event_id: '$1' })
+    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1') } as unknown as MatrixClient
+    const store = instantStore()
+    const queue = new PendingQueueService(undefined, client, store)
+
+    await queue.sendMessage(alice, roomId, { body: 'hi', msgtype: 'm.text' })
+
+    expect(store.events).toHaveLength(1)
+    expect(store.events[0]).toMatchObject({ id: 'local-txn-1', txnId: 'txn-1', syncState: 'synced' })
   })
 
   it('marks the optimistic row as failed with an errorText when sending fails', async () => {
@@ -204,7 +235,7 @@ describe('PendingQueueService', () => {
     await queue.retry(alice, 'txn-1')
 
     const row = store.events.find((e) => e.txnId === 'txn-1')
-    expect(row?.syncState).toBe('sending')
+    expect(row?.syncState).toBe('synced')
     expect(row?.errorText).toBeUndefined()
   })
 
@@ -215,7 +246,7 @@ describe('PendingQueueService', () => {
 
     const store = instantStore()
     const queue = new PendingQueueService(undefined, undefined, store)
-    await queue.restore()
+    await queue.restore(alice)
 
     expect(queue.isActive('txn-r')).toBe(true)
     expect(store.events).toHaveLength(1)
@@ -244,7 +275,7 @@ describe('PendingQueueService', () => {
 
     const store = instantStore()
     const queue = new PendingQueueService(undefined, undefined, store)
-    await queue.restore()
+    await queue.restore(alice)
 
     expect(store.events).toHaveLength(2)
     const pending = store.events.find((e) => e.txnId === 'txn-1')
@@ -253,5 +284,52 @@ describe('PendingQueueService', () => {
     const failed = store.events.find((e) => e.txnId === 'txn-2')
     expect(failed?.syncState).toBe('failed')
     expect(failed?.errorText).toBe('boom')
+  })
+
+  it('restore actually resends pending rows instead of only publishing them optimistically', async () => {
+    await db.pendingEvents.bulkAdd([
+      { userAndTxnId: `${alice}:txn-1`, txnId: 'txn-1', userId: alice, roomId, content: { body: 'a' }, status: 'pending', createdAt: 1, retryCount: 0 },
+      { userAndTxnId: `${alice}:txn-2`, txnId: 'txn-2', userId: alice, roomId, content: { body: 'b' }, status: 'failed', createdAt: 2, retryCount: 3, errorText: 'boom' },
+    ])
+
+    const sendMessage = vi.fn().mockResolvedValue({ event_id: '$resent' })
+    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1') } as unknown as MatrixClient
+    const store = instantStore()
+    const queue = new PendingQueueService(undefined, client, store)
+    await queue.restore(alice)
+
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(sendMessage).toHaveBeenCalledWith(roomId, { body: 'a' }, 'txn-1')
+    expect(await db.pendingEvents.get(`${alice}:txn-1`)).toBeUndefined()
+    const synced = await db.events.get([alice, roomId, '$resent'])
+    expect(synced?.syncState).toBe('synced')
+    expect(synced?.txnId).toBe('txn-1')
+    expect(queue.isActive('txn-1')).toBe(false)
+    expect(queue.isActive('txn-2')).toBe(false)
+  })
+
+  it('restore records a failure and flips the row when resending fails', async () => {
+    await db.pendingEvents.add({
+      userAndTxnId: `${alice}:txn-1`,
+      txnId: 'txn-1',
+      userId: alice,
+      roomId,
+      content: { body: 'a' },
+      status: 'pending',
+      createdAt: 1,
+      retryCount: 0,
+    })
+
+    const sendMessage = vi.fn().mockRejectedValue(new Error('offline'))
+    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1') } as unknown as MatrixClient
+    const store = instantStore()
+    const queue = new PendingQueueService(2, client, store)
+    await queue.restore(alice)
+
+    const row = await db.pendingEvents.get(`${alice}:txn-1`)
+    expect(row?.status).toBe('pending')
+    expect(row?.retryCount).toBe(1)
+    expect(store.events.find((e) => e.txnId === 'txn-1')?.syncState).toBe('failed')
+    expect(queue.isActive('txn-1')).toBe(true)
   })
 })

@@ -7,7 +7,12 @@
   let { roomId }: { roomId: string } = $props()
   let message = $state('')
 
-  const events = $derived(batchedStore.events.filter((e) => e.roomId === roomId))
+  // C14: chronological, not insertion order (gap backfill / reconnect cycles arrive late)
+  const events = $derived(
+    batchedStore.events
+      .filter((e) => e.roomId === roomId)
+      .sort((a, b) => a.originServerTs - b.originServerTs),
+  )
   const userId = $derived(authStore.userId)
 
   async function sendMessage() {

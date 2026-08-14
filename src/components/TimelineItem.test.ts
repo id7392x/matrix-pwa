@@ -58,7 +58,8 @@ describe('TimelineItem', () => {
   })
 
   it('retry button calls queue.retry with the sender and txnId', async () => {
-    const queue = registerQueue(new PendingQueueService())
+    const queue = new PendingQueueService()
+    registerQueue(queue)
     const retry = vi.spyOn(queue, 'retry').mockResolvedValue(undefined)
 
     const el = render(evt({ syncState: 'failed', txnId: 'txn-1', sender: '@alice:example.org' }))

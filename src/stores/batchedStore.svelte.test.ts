@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { BatchedStoreManager, type Scheduler } from './batchedStore.svelte'
 import type { EventDto } from '$types/dto'
@@ -72,6 +72,16 @@ describe('BatchedStoreManager', () => {
     expect(manager.events).toHaveLength(0)
   })
 
+  it('resetBuffer cancels a pending scheduled flush', () => {
+    vi.useFakeTimers()
+    const manager = new BatchedStoreManager((fn) => setTimeout(fn, 16))
+    manager.pushEvents([evt('$1')])
+    manager.resetBuffer()
+    vi.advanceTimersByTime(50)
+    expect(manager.events).toHaveLength(0)
+    vi.useRealTimers()
+  })
+
   it('ignores events with an id already delivered, so repeat syncs do not duplicate rows', () => {
     const manager = new BatchedStoreManager(instantScheduler())
     manager.pushEvents([evt('$1'), evt('$2')])
@@ -103,12 +113,22 @@ describe('BatchedStoreManager', () => {
     expect(manager.events.map((e) => e.id)).toEqual(['$1'])
   })
 
-  it('upsertByTxnId adds an event when no row carries that txnId', () => {
-    const manager = new BatchedStoreManager(manualScheduler())
-    const event: EventDto = { ...evt('$1'), txnId: 't1' }
-    manager.upsertByTxnId(event)
-    manager.flushToUI()
+  it('upserts by id so a repeat sync with updated content replaces the delivered event', () => {
+    const manager = new BatchedStoreManager(instantScheduler())
+    manager.pushEvents([evt('$1')])
+    expect(manager.events[0].body).toBe('hello')
+    manager.pushEvents([{ ...evt('$1'), body: 'updated' }])
 
     expect(manager.events.map((e) => e.id)).toEqual(['$1'])
+    expect(manager.events[0].body).toBe('updated')
+  })
+
+  it('upserts by id while still buffered', () => {
+    const manager = new BatchedStoreManager(manualScheduler())
+    manager.pushEvents([evt('$1')])
+    manager.pushEvents([{ ...evt('$1'), body: 'updated' }])
+    manager.flushToUI()
+
+    expect(manager.events).toEqual([{ ...evt('$1'), body: 'updated' }])
   })
 })
