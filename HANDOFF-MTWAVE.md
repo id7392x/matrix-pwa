@@ -11,15 +11,16 @@
 ## Что уже есть / чего нет (снимок на момент вступления)
 
 ### Уже есть (закоммичено)
-- Инфраструктура: Svelte 5 (Runes), TypeScript strict, Vite, Vitest (68 тестов), Tailwind (glassmorphism), pre-commit гейт `check`/`test`/`lint`, GitHub Actions.
+- Инфраструктура: Svelte 5 (Runes), TypeScript strict, Vite, Vitest (105 тестов), Tailwind (glassmorphism), pre-commit гейт `check`/`test`/`lint`, GitHub Actions.
 - Хранилище: Dexie-схема (комнаты, события, pendingEvents), `promotePendingToSynced`, Web Locks.
-- Домен синка: `ISyncProvider` + мок, `SyncOrchestrator`, `PendingQueueService`, `AccountManager`, DTO-типы.
-- **UI (Слайс 1, на моках):** экран логина (`LoginScreen`), список комнат (`RoomList`), лента сообщений (`Timeline`), hash-навигация. Это рабочий прототип — **дизайн не финален**, есть где развернуться.
+- Домен синка: `ISyncProvider` + `LegacySyncProvider` (реальный `/sync`), `SyncOrchestrator`, `PendingQueueService`, `AccountManager`, DTO-типы.
+- **Отправка сообщений (Слайс 3):** optimistic UI, dual-path promote, статусы `sending`/`failed`, кнопка Retry.
+- **UI (Слайс 1, на моках/реальных данных):** экран логина (`LoginScreen`), список комнат (`RoomList`), лента сообщений (`Timeline`), hash-навигация. Это рабочий прототип — **дизайн не финален**, есть где развернуться.
 - Безопасность: валидация входящих событий, флаг `isEncrypted` для зашифрованных событий.
 
 ### Чего ещё нет
-- Реальный `/sync` (Слайс 2 — следующий, делает `<repo-owner>`).
-- Отправка сообщений (Слайс 3), E2EE (Слайс 4), история/пагинация/виртуализация/медиа (Слайс 5), multi-tab (Слайс 6).
+- Авторизация по паролю/SSO с refresh-токеном (Слайс 4 — следующий, делает `<repo-owner>`).
+- E2EE (Слайс 5), история/пагинация/виртуализация/медиа (Слайс 6), multi-tab (Слайс 7).
 - Финальный дизайн UI: виртуализация списков, превью ленты (`lastEventText`), рендер rich-текста (`formattedBody` + DOMPurify), медиа — не сделаны.
 - E2EE/WASM, строгий CSP — не внедрены.
 
@@ -28,7 +29,7 @@
 
 ## Экскурсия (агент проводит новому участнику в чате)
 
-1. **Что это:** PWA Matrix-клиент на Svelte 5 (Runes) + TypeScript strict + Vite; хранение — Dexie/IndexedDB; сеть — Matrix JS SDK; E2EE — Vodozemac WASM (Слайс 4).
+1. **Что это:** PWA Matrix-клиент на Svelte 5 (Runes) + TypeScript strict + Vite; хранение — Dexie/IndexedDB; сеть — Matrix JS SDK; E2EE — Vodozemac WASM (Слайс 5).
 2. **Как запускать:** `pnpm install` → `pnpm dev` (`http://localhost:5173`). Проверки — `pnpm run check`, `pnpm test`, `pnpm run lint`.
 3. **Как работать:** TDD (падающий тест → реализация → рефакторинг), `any` запрещён, IndexedDB только через Dexie, blast radius — только свой слайс.
 4. **Как коммитить:** формат/scopes/авторство/подписи — `COMMITS.md`. Код-коммиты: автор `MTWave <его noreply>`, трейлер `Co-authored-by: OpenCode`. Доки трека (`MTWAVE`/`HANDOFF-MTWAVE`) — автор `OpenCode`, без трейлера.
