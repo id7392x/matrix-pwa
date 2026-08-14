@@ -1,5 +1,37 @@
 export type SyncState = 'synced' | 'pending' | 'sending' | 'failed'
 
+export interface EventDtoSource {
+  id: string
+  roomId: string
+  sender: string
+  originServerTs: number
+  type: string
+  content: Record<string, unknown>
+  syncState: SyncState
+  txnId?: string
+  isEncrypted?: boolean
+  errorText?: string
+}
+
+export function toEventDto(source: EventDtoSource): EventDto {
+  return {
+    id: source.id,
+    roomId: source.roomId,
+    sender: source.sender,
+    originServerTs: source.originServerTs,
+    type: source.type,
+    body: typeof source.content.body === 'string' ? source.content.body : '',
+    formattedBody:
+      typeof source.content.formatted_body === 'string'
+        ? source.content.formatted_body
+        : undefined,
+    isEncrypted: source.isEncrypted ?? false,
+    syncState: source.syncState,
+    txnId: source.txnId,
+    errorText: source.errorText,
+  }
+}
+
 export interface EventDto {
   id: string
   roomId: string
@@ -29,6 +61,5 @@ export interface RoomDto {
   unreadCount: number
   highlightCount: number
   lastEventTs: number
-  lastEventText?: string
   isDirect: boolean
 }

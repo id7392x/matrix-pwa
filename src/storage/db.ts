@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable, type Table } from 'dexie'
 
-export type SyncState = 'pending' | 'sending' | 'synced' | 'failed'
+import type { SyncState } from '$types/dto'
+
 export type PendingStatus = 'pending' | 'sending' | 'failed'
 
 export interface AccountModel {

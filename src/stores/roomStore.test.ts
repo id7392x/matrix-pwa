@@ -36,43 +36,34 @@ describe('roomStore', () => {
     roomStore.reset()
   })
 
-  it('loads rooms from Dexie as RoomDto', async () => {
+  it('surfaces Dexie rows as RoomDto through liveQuery', async () => {
     await db.rooms.bulkAdd([roomA, roomB])
-    await roomStore.load()
-    expect(roomStore.rooms).toHaveLength(2)
+    await vi.waitFor(() => {
+      expect(roomStore.rooms).toHaveLength(2)
+    })
     expect(roomStore.rooms[0]).not.toHaveProperty('userId')
   })
 
-  it('upserts a room', async () => {
-    await roomStore.upsert(roomA)
-    await vi.waitFor(() => {
-      expect(roomStore.rooms).toHaveLength(1)
-    })
-    expect(roomStore.rooms[0]).toMatchObject({ id: '!a', unreadCount: 1 })
-  })
-
   it('updates unread count reactively', async () => {
-    await roomStore.upsert(roomA)
+    await db.rooms.bulkAdd([roomA])
     await vi.waitFor(() => {
       expect(roomStore.rooms).toHaveLength(1)
     })
-    await roomStore.updateUnread(`${alice}:!a`, 9)
+    await db.rooms.update(`${alice}:!a`, { unreadCount: 9 })
     await vi.waitFor(() => {
       expect(roomStore.rooms.find((r) => r.id === '!a')?.unreadCount).toBe(9)
     })
   })
 
   it('derives rooms sorted by lastEventTs descending', async () => {
-    await roomStore.upsert(roomA)
-    await roomStore.upsert(roomB)
+    await db.rooms.bulkAdd([roomA, roomB])
     await vi.waitFor(() => {
       expect(roomStore.sortedRooms.map((r) => r.id)).toEqual(['!b', '!a'])
     })
   })
 
   it('derives total unread across rooms', async () => {
-    await roomStore.upsert(roomA)
-    await roomStore.upsert(roomB)
+    await db.rooms.bulkAdd([roomA, roomB])
     await vi.waitFor(() => {
       expect(roomStore.totalUnread).toBe(6)
     })

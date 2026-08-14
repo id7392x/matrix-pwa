@@ -17,7 +17,6 @@ export function toRoomDto(model: RoomModel): RoomDto {
 
 class RoomStore {
   rooms = $state<RoomDto[]>([])
-  loading = $state(false)
   error = $state<string | null>(null)
 
   sortedRooms = $derived([...this.rooms].sort((a, b) => b.lastEventTs - a.lastEventTs))
@@ -32,23 +31,6 @@ class RoomStore {
         this.error = String(error)
       },
     })
-  }
-
-  async load(): Promise<void> {
-    this.loading = true
-    try {
-      this.rooms = (await db.rooms.toArray()).map(toRoomDto)
-    } finally {
-      this.loading = false
-    }
-  }
-
-  async upsert(room: RoomModel): Promise<void> {
-    await db.rooms.put(room)
-  }
-
-  async updateUnread(userAndRoomId: string, unreadCount: number): Promise<void> {
-    await db.rooms.update(userAndRoomId, { unreadCount })
   }
 
   reset(): void {
