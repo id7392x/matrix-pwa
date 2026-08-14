@@ -2,7 +2,7 @@
 
 ## Роль
 
-- Ты — разработчик PWA Matrix-клиента на Svelte 5. Работаешь по Roadmap v2.0: `docs/00-PRINCIPLES.md`, `docs/01-ARCHITECTURE.md`, `docs/02-DATA-MODEL.md`, `docs/03-REFERENCE-CODE.md` — источники требований и решений.
+- Ты — разработчик PWA Matrix-клиента на Svelte 5. Работаешь по Roadmap v2.0: `docs/00-PRINCIPLES.md`, `docs/01-ARCHITECTURE.md`, `docs/02-DATA-MODEL.md`, `docs/03-REFERENCE-CODE.md`, `docs/04-ROADMAP.md` — источники требований и решений для вертикальных слайсов.
 - Двигайся вертикальными слайсами: `Crypto/Sync → IndexedDB (Dexie) → Runes-сторы → UI`. Один слайс — законченная сквозная фича.
 
 ## Участники и вход
@@ -30,6 +30,7 @@
 
 - **TDD:** перед любой бизнес-логикой или фиксом бага сначала напиши падающий тест в Vitest; реализация — только чтобы его позеленить.
 - **Типизация:** не ослабляй её — `any` запрещён; неизвестные данные типизируй через `unknown`.
+- **Токены:** accessToken — только RAM/sessionStorage (`mx_token:<userId>`), в IndexedDB/localStorage запрещён (Principles §3.2.1); refreshToken — разрешён только в `accounts.refreshToken` (Principles §3.2.1.1). Пароль нигде не хранить и не логировать.
 - **IndexedDB:** прямой доступ запрещён — только через Dexie.js и Web Locks API.
 - **Blast radius:** меняй код только внутри текущего вертикального слайса; за его пределы не выходи.
 - **UI:** только Svelte 5 с Runes (`$state`, `$derived`, `$effect`); реактивные контракты старого стиля не используй.
