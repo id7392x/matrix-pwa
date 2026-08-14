@@ -1,11 +1,11 @@
 import 'fake-indexeddb/auto'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createClient } from 'matrix-js-sdk'
+import { ClientPrefix, Method, createClient } from 'matrix-js-sdk'
 
 import { db } from '$storage/db'
 import { accountManager } from '$lib/accountManager'
-import { login, makeTokenRefreshFunction } from '$lib/authService'
+import { login, makeTokenRefreshFunction, normalizeHomeserver } from '$lib/authService'
 
 vi.mock('matrix-js-sdk', async (importOriginal) => {
   const actual = await importOriginal<typeof import('matrix-js-sdk')>()
@@ -74,6 +74,21 @@ describe('authService.login', () => {
   })
 })
 
+describe('authService.normalizeHomeserver', () => {
+  it('adds https to a bare hostname', () => {
+    expect(normalizeHomeserver('matrix.org')).toBe('https://matrix.org')
+  })
+
+  it('strips whitespace and trailing slashes', () => {
+    expect(normalizeHomeserver('  matrix.org/  ')).toBe('https://matrix.org')
+    expect(normalizeHomeserver('https://matrix.org/')).toBe('https://matrix.org')
+  })
+
+  it('keeps an explicit scheme', () => {
+    expect(normalizeHomeserver('http://localhost:8008')).toBe('http://localhost:8008')
+  })
+})
+
 describe('authService.makeTokenRefreshFunction', () => {
   beforeEach(async () => {
     await db.accounts.clear()
@@ -81,9 +96,9 @@ describe('authService.makeTokenRefreshFunction', () => {
     vi.restoreAllMocks()
   })
 
-  it('refreshes via client.refreshToken, persists new tokens and returns an expiry', async () => {
+  it('refreshes via the unauthenticated /refresh endpoint, persists new tokens and returns an expiry', async () => {
     const client = createClient({ baseUrl: 'https://example.org' })
-    vi.spyOn(client, 'refreshToken').mockResolvedValue({
+    vi.spyOn(client.http, 'request').mockResolvedValue({
       access_token: 'fresh-access',
       refresh_token: 'rotated-refresh',
       expires_in_ms: 60_000,
@@ -98,11 +113,41 @@ describe('authService.makeTokenRefreshFunction', () => {
 
     const result = await makeTokenRefreshFunction(alice, () => client)('stale-refresh')
 
-    expect(client.refreshToken).toHaveBeenCalledWith('stale-refresh')
+    expect(client.http.request).toHaveBeenCalledWith(
+      Method.Post,
+      '/refresh',
+      undefined,
+      { refresh_token: 'stale-refresh' },
+      expect.objectContaining({ prefix: ClientPrefix.V3 }),
+    )
     expect(result.accessToken).toBe('fresh-access')
     expect(result.refreshToken).toBe('rotated-refresh')
     expect(result.expiry).toBeInstanceOf(Date)
     expect(accountManager.getAccessToken(alice)).toBe('fresh-access')
     expect((await db.accounts.get(alice))?.refreshToken).toBe('rotated-refresh')
+  })
+
+  it('does not re-enter the SDK refresh pipeline via client.refreshToken', async () => {
+    const client = createClient({ baseUrl: 'https://example.org' })
+    const refreshTokenSpy = vi.spyOn(client, 'refreshToken').mockRejectedValue(
+      new Error('must not be called from within tokenRefreshFunction'),
+    )
+    vi.spyOn(client.http, 'request').mockResolvedValue({
+      access_token: 'fresh-access',
+      refresh_token: 'rotated-refresh',
+      expires_in_ms: 60_000,
+    })
+    await db.accounts.add({
+      userId: alice,
+      homeserver: 'https://example.org',
+      deviceId: 'DEV1',
+      isPrimary: true,
+      refreshToken: 'stale-refresh',
+    })
+
+    const result = await makeTokenRefreshFunction(alice, () => client)('stale-refresh')
+
+    expect(refreshTokenSpy).not.toHaveBeenCalled()
+    expect(result.accessToken).toBe('fresh-access')
   })
 })

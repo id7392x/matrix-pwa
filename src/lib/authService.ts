@@ -1,10 +1,16 @@
-import { createClient, type MatrixClient } from 'matrix-js-sdk'
-import type { AccessTokens, TokenRefreshFunction } from 'matrix-js-sdk'
+import { ClientPrefix, Method, createClient, type MatrixClient } from 'matrix-js-sdk'
+import type {
+  AccessTokens,
+  IRefreshTokenResponse,
+  TokenRefreshFunction,
+} from 'matrix-js-sdk'
 
 import { accountManager } from '$lib/accountManager'
 
 export function normalizeHomeserver(homeserver: string): string {
-  return homeserver.includes('://') ? homeserver : `https://${homeserver}`
+  // SEC-4: a trailing slash or whitespace must not produce a double-slash baseUrl
+  const cleaned = homeserver.trim().replace(/\/+$/, '')
+  return cleaned.includes('://') ? cleaned : `https://${cleaned}`
 }
 
 export async function login(
@@ -31,12 +37,25 @@ export async function login(
   return { userId: response.user_id, deviceId: response.device_id, homeserver: baseUrl }
 }
 
+// ponytail: unauthenticated /refresh bypasses the SDK TokenRefresher, which
+// would otherwise re-enter tokenRefreshFunction (stack overflow / deadlock)
+export async function refreshAccessTokens(
+  client: MatrixClient,
+  refreshToken: string,
+): Promise<IRefreshTokenResponse> {
+  return client.http.request(Method.Post, '/refresh', undefined, { refresh_token: refreshToken }, {
+    prefix: ClientPrefix.V3,
+  })
+}
+
 export function makeTokenRefreshFunction(
   userId: string,
   getClient: () => MatrixClient,
 ): TokenRefreshFunction {
   return async (refreshToken: string): Promise<AccessTokens> => {
-    const response = await getClient().refreshToken(refreshToken)
+    // SDK-5: anchor expiry to the request start, matching the SDK's own refresher
+    const startedAt = Date.now()
+    const response = await refreshAccessTokens(getClient(), refreshToken)
     await accountManager.setTokens(userId, {
       accessToken: response.access_token,
       refreshToken: response.refresh_token,
@@ -44,7 +63,7 @@ export function makeTokenRefreshFunction(
     return {
       accessToken: response.access_token,
       refreshToken: response.refresh_token,
-      expiry: new Date(Date.now() + response.expires_in_ms),
+      expiry: new Date(startedAt + response.expires_in_ms),
     }
   }
 }

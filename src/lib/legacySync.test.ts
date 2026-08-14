@@ -38,6 +38,8 @@ vi.mock('matrix-js-sdk', async (importOriginal) => {
 const alice = '@alice:example.org'
 const roomId = '!general:example.org'
 
+const defaultCreateClient = vi.mocked(createClient).getMockImplementation()!
+
 function makeRoom(client: MatrixClient): Room {
   const room = new Room(roomId, client, alice)
   room.name = 'General'
@@ -66,6 +68,7 @@ describe('legacy sync integration', () => {
     roomStore.reset()
     batchedStore.reset()
     vi.restoreAllMocks()
+    vi.mocked(createClient).mockImplementation(defaultCreateClient)
     vi.mocked(createClient).mockClear()
   })
 
@@ -158,6 +161,18 @@ describe('legacy sync integration', () => {
   })
 
   it('starts a refresh-token-only session with refreshToken and tokenRefreshFunction', async () => {
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    let capturedOpts: Parameters<typeof createClient>[0] | undefined
+    vi.mocked(createClient).mockImplementation((opts) => {
+      capturedOpts = opts
+      return client
+    })
+    vi.mocked(client.startClient).mockResolvedValue(undefined)
+    vi.spyOn(client.http, 'request').mockResolvedValue({
+      access_token: 'seeded-access',
+      refresh_token: 'rotated-refresh',
+      expires_in_ms: 60_000,
+    })
     await db.accounts.add({
       userId: alice,
       homeserver: 'https://matrix.org',
@@ -168,10 +183,40 @@ describe('legacy sync integration', () => {
 
     await startLegacySync(alice)
 
-    const opts = vi.mocked(createClient).mock.calls[0]?.[0]
-    expect(opts.accessToken).toBeUndefined()
-    expect(opts.refreshToken).toBe('persisted-refresh')
-    expect(typeof opts.tokenRefreshFunction).toBe('function')
+    expect(capturedOpts?.accessToken).toBeUndefined()
+    expect(capturedOpts?.refreshToken).toBe('persisted-refresh')
+    expect(typeof capturedOpts?.tokenRefreshFunction).toBe('function')
+  })
+
+  it('seeds the client access token from a refresh-token-only session before starting sync', async () => {
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    vi.mocked(createClient).mockReturnValue(client)
+    vi.mocked(client.startClient).mockResolvedValue(undefined)
+    const request = vi.spyOn(client.http, 'request').mockResolvedValue({
+      access_token: 'seeded-access',
+      refresh_token: 'rotated-refresh',
+      expires_in_ms: 60_000,
+    })
+    await db.accounts.add({
+      userId: alice,
+      homeserver: 'https://matrix.org',
+      deviceId: 'DEV1',
+      isPrimary: true,
+      refreshToken: 'persisted-refresh',
+    })
+
+    await startLegacySync(alice)
+
+    expect(request).toHaveBeenCalledWith(
+      expect.anything(),
+      '/refresh',
+      undefined,
+      { refresh_token: 'persisted-refresh' },
+      expect.objectContaining({ prefix: '/_matrix/client/v3' }),
+    )
+    expect(client.getAccessToken()).toBe('seeded-access')
+    expect(accountManager.getAccessToken(alice)).toBe('seeded-access')
+    expect((await db.accounts.get(alice))?.refreshToken).toBe('rotated-refresh')
   })
 
   it('calls onLoggedOut when the session is logged out', async () => {
@@ -180,10 +225,79 @@ describe('legacy sync integration', () => {
 
     await startLegacySync(alice, onLoggedOut)
     const client = vi.mocked(createClient).mock.results[0]?.value as MatrixClient
+    vi.spyOn(client.http, 'request').mockResolvedValue({
+      access_token: 'refreshed',
+      refresh_token: 'rotated',
+      expires_in_ms: 60_000,
+    })
 
     client.emit(HttpApiEvent.SessionLoggedOut, new MatrixError({ errcode: 'M_UNKNOWN_TOKEN' }))
 
     expect(onLoggedOut).toHaveBeenCalledTimes(1)
+  })
+
+  it('builds the sync client from the requested account, not the active one', async () => {
+    await db.accounts.bulkAdd([
+      {
+        userId: '@bob:example.org',
+        homeserver: 'https://bob.example',
+        deviceId: 'DEVB',
+        isPrimary: true,
+        refreshToken: 'bob-refresh',
+      },
+      {
+        userId: alice,
+        homeserver: 'https://alice.example',
+        deviceId: 'DEVA',
+        isPrimary: false,
+        refreshToken: 'alice-refresh',
+      },
+    ])
+    accountManager.setAccessToken(alice, 'alice-access')
+
+    await startLegacySync(alice)
+
+    const opts = vi.mocked(createClient).mock.calls[0]?.[0]
+    expect(opts).toMatchObject({
+      baseUrl: 'https://alice.example',
+      userId: alice,
+      deviceId: 'DEVA',
+      accessToken: 'alice-access',
+      refreshToken: 'alice-refresh',
+    })
+  })
+
+  it('a concurrent second start cancels the first in-flight start', async () => {
+    await seedSession()
+
+    const [, second] = await Promise.all([startLegacySync(alice), startLegacySync(alice)])
+
+    const clients = vi.mocked(createClient).mock.results.map((r) => r.value as MatrixClient)
+    expect(clients).toHaveLength(1)
+    expect(vi.mocked(clients[0].startClient)).toHaveBeenCalledTimes(1)
+
+    second.stop()
+  })
+
+  it('stopLegacySync cancels an in-flight start so no sync loop keeps running', async () => {
+    await seedSession()
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    vi.mocked(createClient).mockReturnValue(client)
+    const stopClient = vi.spyOn(client, 'stopClient')
+    let releaseStart!: () => void
+    const gate = new Promise<void>((resolve) => {
+      releaseStart = resolve
+    })
+    vi.mocked(client.startClient).mockImplementation(() => gate)
+
+    const starting = startLegacySync(alice)
+    await vi.waitFor(() => expect(vi.mocked(client.startClient)).toHaveBeenCalled())
+
+    stopLegacySync(alice)
+    releaseStart()
+    await starting
+
+    expect(stopClient).toHaveBeenCalled()
   })
 
   it('garbage-collects pending rows already delivered but not retryable', async () => {

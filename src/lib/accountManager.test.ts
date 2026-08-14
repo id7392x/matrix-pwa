@@ -48,12 +48,19 @@ describe('AccountManager', () => {
     expect((await manager.getActiveAccount())?.userId).toBe(alice.userId)
   })
 
-  it('switchAccount flips the primary flag between accounts', async () => {
+  it('a second primary account demotes the previous one', async () => {
     const { manager } = setup()
     await manager.addAccount(alice)
-    await manager.addAccount(bob)
+    await manager.addAccount({ ...bob, isPrimary: true })
 
-    await manager.switchAccount(bob.userId)
+    expect((await db.accounts.get(alice.userId))?.isPrimary).toBe(false)
+    expect((await manager.getActiveAccount())?.userId).toBe(bob.userId)
+  })
+
+  it('switchAccount is removed; addAccount keeps exactly one primary', async () => {
+    const { manager } = setup()
+    await manager.addAccount(alice)
+    await manager.addAccount({ ...bob, isPrimary: true })
 
     expect((await manager.getActiveAccount())?.userId).toBe(bob.userId)
     expect((await db.accounts.get(alice.userId))?.isPrimary).toBe(false)
