@@ -24,6 +24,24 @@ export class AccountManager {
   setAccessToken(userId: string, token: string): void {
     sessionStorage.setItem(TOKEN_KEY(userId), token)
   }
+
+  async getRefreshToken(userId: string): Promise<string | null> {
+    return (await db.accounts.get(userId))?.refreshToken ?? null
+  }
+
+  async setTokens(
+    userId: string,
+    tokens: { accessToken?: string; refreshToken?: string },
+  ): Promise<void> {
+    if (tokens.accessToken) this.setAccessToken(userId, tokens.accessToken)
+    if (tokens.refreshToken) await db.accounts.update(userId, { refreshToken: tokens.refreshToken })
+  }
+
+  async clearRefreshToken(userId: string): Promise<void> {
+    await db.accounts.where('userId').equals(userId).modify((account) => {
+      delete account.refreshToken
+    })
+  }
 }
 
 export const accountManager = new AccountManager()

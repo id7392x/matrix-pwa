@@ -4,7 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   ClientEvent,
+  HttpApiEvent,
   KnownMembership,
+  MatrixError,
   MatrixEvent,
   Room,
   SyncState,
@@ -60,6 +62,7 @@ describe('legacy sync integration', () => {
     await db.events.clear()
     await db.pendingEvents.clear()
     await db.accounts.clear()
+    sessionStorage.clear()
     roomStore.reset()
     batchedStore.reset()
     vi.restoreAllMocks()
@@ -152,5 +155,88 @@ describe('legacy sync integration', () => {
   it('returns a no-op handle when no session exists', async () => {
     const handle = await startLegacySync(alice)
     expect(() => handle.stop()).not.toThrow()
+  })
+
+  it('starts a refresh-token-only session with refreshToken and tokenRefreshFunction', async () => {
+    await db.accounts.add({
+      userId: alice,
+      homeserver: 'https://matrix.org',
+      deviceId: 'DEV1',
+      isPrimary: true,
+      refreshToken: 'persisted-refresh',
+    })
+
+    await startLegacySync(alice)
+
+    const opts = vi.mocked(createClient).mock.calls[0]?.[0]
+    expect(opts.accessToken).toBeUndefined()
+    expect(opts.refreshToken).toBe('persisted-refresh')
+    expect(typeof opts.tokenRefreshFunction).toBe('function')
+  })
+
+  it('calls onLoggedOut when the session is logged out', async () => {
+    await seedSession()
+    const onLoggedOut = vi.fn()
+
+    await startLegacySync(alice, onLoggedOut)
+    const client = vi.mocked(createClient).mock.results[0]?.value as MatrixClient
+
+    client.emit(HttpApiEvent.SessionLoggedOut, new MatrixError({ errcode: 'M_UNKNOWN_TOKEN' }))
+
+    expect(onLoggedOut).toHaveBeenCalledTimes(1)
+  })
+
+  it('garbage-collects pending rows already delivered but not retryable', async () => {
+    await seedSession()
+    await db.pendingEvents.bulkAdd([
+      {
+        userAndTxnId: `${alice}:txn-delivered`,
+        txnId: 'txn-delivered',
+        userId: alice,
+        roomId,
+        content: {},
+        status: 'failed',
+        createdAt: 1,
+        retryCount: 3,
+      },
+      {
+        userAndTxnId: `${alice}:txn-undelivered`,
+        txnId: 'txn-undelivered',
+        userId: alice,
+        roomId,
+        content: {},
+        status: 'failed',
+        createdAt: 2,
+        retryCount: 3,
+      },
+      {
+        userAndTxnId: `${alice}:txn-active`,
+        txnId: 'txn-active',
+        userId: alice,
+        roomId,
+        content: {},
+        status: 'pending',
+        createdAt: 3,
+        retryCount: 0,
+      },
+    ])
+    await db.events.put({
+      userId: alice,
+      roomId,
+      eventId: '$delivered',
+      originServerTs: 1000,
+      sender: alice,
+      type: 'm.room.message',
+      content: {},
+      txnId: 'txn-delivered',
+      syncState: 'synced',
+      isEncrypted: false,
+    })
+
+    await startLegacySync(alice)
+
+    expect(await db.pendingEvents.get(`${alice}:txn-delivered`)).toBeUndefined()
+    expect(await db.pendingEvents.get(`${alice}:txn-undelivered`)).toBeDefined()
+    expect(await db.pendingEvents.get(`${alice}:txn-active`)).toBeDefined()
   })
 })

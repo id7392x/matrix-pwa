@@ -9,6 +9,7 @@ export interface AccountModel {
   deviceId: string
   isPrimary: boolean
   lastSyncToken?: string
+  refreshToken?: string // единственный токен в БД (Principles §3.2.1.1)
   // accessToken ЗАПРЕЩЕНО хранить в этой модели (только RAM/sessionStorage)
 }
 

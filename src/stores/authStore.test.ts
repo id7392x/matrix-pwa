@@ -64,7 +64,7 @@ describe('authStore', () => {
     expect(authStore.userId).toBe('@alice:example.org')
     expect(authStore.deviceId).toBe('DEV1')
     expect(authStore.accessToken).toBe('secret-token')
-    expect(startLegacySync).toHaveBeenCalledWith('@alice:example.org')
+    expect(startLegacySync).toHaveBeenCalledWith('@alice:example.org', expect.any(Function))
   })
 
   it('returns false when no session is persisted', async () => {
@@ -73,5 +73,77 @@ describe('authStore', () => {
     expect(resolved).toBe(false)
     expect(authStore.isAuthenticated).toBe(false)
     expect(startLegacySync).not.toHaveBeenCalled()
+  })
+
+  it('restores a session from a refresh token without an access token', async () => {
+    await db.accounts.add({
+      userId: '@alice:example.org',
+      homeserver: 'example.org',
+      deviceId: 'DEV1',
+      isPrimary: true,
+      refreshToken: 'persisted-refresh',
+    })
+
+    const resolved = await authStore.restoreSession()
+
+    expect(resolved).toBe(true)
+    expect(authStore.isAuthenticated).toBe(true)
+    expect(authStore.userId).toBe('@alice:example.org')
+    expect(authStore.accessToken).toBeNull()
+    expect(startLegacySync).toHaveBeenCalledWith('@alice:example.org', expect.any(Function))
+  })
+
+  it('returns false when the account has neither access nor refresh token', async () => {
+    await db.accounts.add({
+      userId: '@alice:example.org',
+      homeserver: 'example.org',
+      deviceId: 'DEV1',
+      isPrimary: true,
+    })
+
+    const resolved = await authStore.restoreSession()
+
+    expect(resolved).toBe(false)
+    expect(authStore.isAuthenticated).toBe(false)
+    expect(startLegacySync).not.toHaveBeenCalled()
+  })
+
+  it('signs out and clears the refresh token from the account', async () => {
+    await db.accounts.add({
+      userId: '@alice:example.org',
+      homeserver: 'example.org',
+      deviceId: 'DEV1',
+      isPrimary: true,
+      refreshToken: 'persisted-refresh',
+    })
+    authStore.signIn('@alice:example.org', 'DEV1', 'example.org', 'secret-token')
+
+    await authStore.signOut()
+
+    expect((await db.accounts.get('@alice:example.org'))?.refreshToken).toBeUndefined()
+    expect(sessionStorage.getItem('mx_token:@alice:example.org')).toBeNull()
+  })
+
+  it('signs out when the logged-out callback fires during restore', async () => {
+    await db.accounts.add({
+      userId: '@alice:example.org',
+      homeserver: 'example.org',
+      deviceId: 'DEV1',
+      isPrimary: true,
+      refreshToken: 'persisted-refresh',
+    })
+    let onLoggedOut: (() => void) | undefined
+    vi.mocked(startLegacySync).mockImplementation((_userId: string, cb?: () => void) => {
+      onLoggedOut = cb
+      return Promise.resolve({ stop: () => undefined })
+    })
+
+    await authStore.restoreSession()
+    expect(authStore.isAuthenticated).toBe(true)
+
+    onLoggedOut?.()
+
+    expect(authStore.isAuthenticated).toBe(false)
+    expect(authStore.userId).toBeNull()
   })
 })

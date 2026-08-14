@@ -1,30 +1,28 @@
 <script lang="ts">
-  import { accountManager } from '$lib/accountManager'
-  import { startLegacySync } from '$lib/legacySync'
+  import { login } from '$lib/authService'
   import { authStore } from '$stores/authStore.svelte'
   import { uiStore } from '$stores/uiStore.svelte'
 
   let homeserver = $state('matrix.org')
   let userId = $state('')
-  let deviceId = $state('')
-  let accessToken = $state('')
+  let password = $state('')
   let error = $state<string | null>(null)
 
   async function handleSubmit(): Promise<void> {
     error = null
     const trimmedUserId = userId.trim()
-    const trimmedToken = accessToken.trim()
-    if (!trimmedUserId || !trimmedToken) {
-      error = 'userId and accessToken are required'
+    if (!trimmedUserId || !password) {
+      error = 'userId and password are required'
       return
     }
-    await accountManager.addAccount({ userId: trimmedUserId, homeserver, deviceId, isPrimary: true })
-    accountManager.setAccessToken(trimmedUserId, trimmedToken)
-    authStore.signIn(trimmedUserId, deviceId, homeserver, trimmedToken)
-    void startLegacySync(trimmedUserId).catch((error) => {
-      console.error('legacy sync start failed', error)
-    })
-    uiStore.openRooms()
+    try {
+      await login(homeserver, trimmedUserId, password)
+      const restored = await authStore.restoreSession()
+      if (!restored) throw new Error('Session could not be restored')
+      uiStore.openRooms()
+    } catch (loginError) {
+      error = loginError instanceof Error ? loginError.message : 'Login failed'
+    }
   }
 </script>
 
@@ -56,20 +54,11 @@
   </label>
 
   <label class="flex flex-col gap-1">
-    <span class="text-xs text-[var(--text-primary)]/70">Device ID</span>
+    <span class="text-xs text-[var(--text-primary)]/70">Password</span>
     <input
-      name="deviceId"
-      bind:value={deviceId}
-      class="rounded-lg border border-[var(--glass-border)] bg-white/5 px-3 py-2 text-sm text-[var(--text-primary)]"
-    />
-  </label>
-
-  <label class="flex flex-col gap-1">
-    <span class="text-xs text-[var(--text-primary)]/70">Access token</span>
-    <input
-      name="accessToken"
+      name="password"
       type="password"
-      bind:value={accessToken}
+      bind:value={password}
       class="rounded-lg border border-[var(--glass-border)] bg-white/5 px-3 py-2 text-sm text-[var(--text-primary)]"
     />
   </label>
