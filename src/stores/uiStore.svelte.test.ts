@@ -55,6 +55,27 @@ describe('uiStore', () => {
     expect(uiStore.screen).toEqual({ name: 'room', roomId: '!b:example.org' })
   })
 
+  it('records the previous hash on browser navigation so in-app back stays coherent', () => {
+    uiStore.openRoom('!a')
+    const oldURL = `https://example.org${location.hash}`
+    location.hash = '#/room/!c'
+    window.dispatchEvent(new HashChangeEvent('hashchange', { oldURL, newURL: location.hash }))
+
+    uiStore.back()
+
+    expect(uiStore.screen).toEqual({ name: 'room', roomId: '!a' })
+  })
+
+  it('reset clears history so a stale back cannot cross accounts', () => {
+    uiStore.openRooms()
+    uiStore.openRoom('!a')
+    uiStore.reset()
+
+    expect(uiStore.screen).toEqual({ name: 'login' })
+    uiStore.back()
+    expect(uiStore.screen).toEqual({ name: 'login' })
+  })
+
   it('does not crash on a malformed percent-encoded room id in the hash', () => {
     location.hash = '#/room/%zz'
     window.dispatchEvent(new Event('hashchange'))

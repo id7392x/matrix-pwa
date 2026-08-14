@@ -31,7 +31,13 @@ class UiStore {
     if (this.initialized || typeof window === 'undefined') return
     this.initialized = true
     this.applyHash(location.hash)
-    window.addEventListener('hashchange', () => this.applyHash(location.hash))
+    window.addEventListener('hashchange', (event) => {
+      // C15: keep in-app history coherent with browser navigation so back()
+      // never jumps to a stale/cross-user entry.
+      const oldHash = event.oldURL ? new URL(event.oldURL).hash : ''
+      if (oldHash && oldHash !== location.hash) this.history.push(oldHash)
+      this.applyHash(location.hash)
+    })
   }
 
   openLogin(): void {
@@ -49,7 +55,8 @@ class UiStore {
   }
 
   back(): void {
-    this.go(this.history.pop() ?? ROOMS_HASH)
+    const prev = this.history.pop()
+    if (prev !== undefined) this.go(prev)
   }
 
   reset(): void {

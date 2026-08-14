@@ -7,7 +7,10 @@ import { startLegacySync, stopLegacySync } from '$lib/legacySync'
 import { db } from '$storage/db'
 import { authStore } from '$stores/authStore.svelte'
 
-vi.mock('$lib/legacySync', () => ({ startLegacySync: vi.fn(), stopLegacySync: vi.fn() }))
+vi.mock('$lib/legacySync', () => ({
+  startLegacySync: vi.fn(() => Promise.resolve({ stop: () => undefined })),
+  stopLegacySync: vi.fn(),
+}))
 
 describe('authStore', () => {
   beforeEach(async () => {
