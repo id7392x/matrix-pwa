@@ -180,8 +180,8 @@ DTO содержат только данные, необходимые для о
   
 Основные защиты:  
   
-- *`accessToken`* — только RAM или *`sessionStorage`* (никогда в IndexedDB/localStorage)  
-- Полная изоляция crypto store по *`userId + deviceId`*  
+- *`accessToken`* — только RAM или *`sessionStorage`* (никогда в IndexedDB/localStorage); *`refreshToken`* — единственное исключение, в `accounts.refreshToken` (Principles §3.2.1.1, Слайс 4)
+- Полная изоляция crypto store по *`userId + deviceId`*
 - Одна Master-вкладка на устройство (Web Locks)  
 - Статическая схема базы данных  
 - Запрет сырых объектов SDK в UI-слое  

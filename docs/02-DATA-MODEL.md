@@ -13,7 +13,7 @@
 - Динамическое создание таблиц под комнаты запрещено.
 - Primary Key никогда не мутируется.
 - Все критические переходы состояния (особенно pending → synced) выполняются только внутри атомарных транзакций.
-- `accessToken` в базе данных не хранится (см. Principles).
+- `accessToken` в базе данных не хранится (см. Principles §3.2.1); `refreshToken` — хранится в `accounts.refreshToken` (Слайс 4).
 
 ---
 
@@ -23,8 +23,9 @@
 
 #### `accounts`
 - **PK:** `userId`
-- Важные поля: `homeserver`, `deviceId`, `isPrimary`, `lastSyncToken`
-- `accessToken` **запрещено** хранить в этой таблице.
+- Важные поля: `homeserver`, `deviceId`, `isPrimary`, `lastSyncToken`, `refreshToken?`
+- `accessToken` **запрещено** хранить в этой таблице (только RAM/sessionStorage, см. Principles §3.2.1); `refreshToken` — разрешено (Principles §3.2.1.1, Слайс 4 «Авторизация»).
+- Пароль никогда не хранится.
 
 #### `rooms`
 - **PK:** `userAndRoomId` = `${userId}:${roomId}`

@@ -19,6 +19,7 @@ export interface AccountModel {
   deviceId: string;
   isPrimary: boolean;
   lastSyncToken?: string;
+  refreshToken?: string; // Слайс 4 «Авторизация»: единственный токен в БД (Principles §3.2.1.1)
   // accessToken ЗАПРЕЩЕНО добавлять в эту модель (хранится только в RAM/sessionStorage)
 }
 
@@ -116,6 +117,8 @@ export interface EventDto {
   formattedBody?: string; // САНИТИЗИРОВАТЬ перед рендером; `{@html}` напрямую запрещён (stored XSS)
   isEncrypted: boolean;
   syncState: SyncState;
+  txnId?: string; // для optimistic-строки и замены эхом (Слайс 3)
+  errorText?: string; // текст ошибки при syncState==='failed'
   decryptionError?: string;
   
   // Медиа метаданные
@@ -150,6 +153,8 @@ export interface IAccountManager {
   getActiveAccount(): Promise<AccountModel | null>;
   getAccessToken(userId: string): string | null; // Только из RAM / sessionStorage
   setAccessToken(userId: string, token: string): void;
+  getRefreshToken(userId: string): string | null; // Из accounts (IndexedDB) — Слайс 4
+  setTokens(userId: string, tokens: { accessToken?: string; refreshToken?: string }): void; // access → sessionStorage, refresh → accounts
   switchAccount(userId: string): Promise<void>;
 }
 
