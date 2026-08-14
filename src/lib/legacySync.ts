@@ -3,7 +3,7 @@ import { createClient } from 'matrix-js-sdk'
 import { accountManager } from '$lib/accountManager'
 import { batchedStore } from '$stores/batchedStore.svelte'
 import { LegacySyncProvider } from '$sync/legacySyncProvider'
-import { PendingQueueService } from '$sync/PendingQueueService'
+import { PendingQueueService, registerQueue } from '$sync/PendingQueueService'
 import { SyncOrchestrator } from '$sync/SyncOrchestrator'
 
 export type LegacySyncHandle = { stop: () => void }
@@ -27,7 +27,9 @@ export async function startLegacySync(userId: string): Promise<LegacySyncHandle>
     deviceId: account.deviceId,
     accessToken,
   })
-  const orchestrator = new SyncOrchestrator(userId, new PendingQueueService(), batchedStore)
+  const pendingQueue = new PendingQueueService(undefined, client, batchedStore)
+  registerQueue(pendingQueue)
+  const orchestrator = new SyncOrchestrator(userId, pendingQueue, batchedStore)
   const provider = new LegacySyncProvider(client)
   provider.onSync((sync) => orchestrator.handleSync(sync))
   await provider.start()

@@ -43,8 +43,9 @@ export class SyncOrchestrator {
   }
 
   private async upsertEvent(roomId: string, raw: SyncRawEvent): Promise<void> {
-    if (raw.txn_id && this.pendingQueue.isActive(raw.txn_id)) {
-      await this.pendingQueue.promote(this.userId, roomId, raw.txn_id, raw.event_id, {
+    const txnId = raw.unsigned?.transaction_id ?? (typeof raw.txn_id === 'string' ? raw.txn_id : undefined)
+    if (txnId && this.pendingQueue.isActive(txnId)) {
+      await this.pendingQueue.promote(this.userId, roomId, txnId, raw.event_id, {
         originServerTs: raw.origin_server_ts,
         sender: raw.sender,
         type: raw.type,
@@ -55,13 +56,14 @@ export class SyncOrchestrator {
     }
 
     const model: EventModel = {
-      eventId: raw.event_id,
       userId: this.userId,
       roomId,
+      eventId: raw.event_id,
       originServerTs: raw.origin_server_ts,
       sender: raw.sender,
       type: raw.type,
       content: raw.content,
+      txnId,
       syncState: 'synced',
       isEncrypted: isEncrypted(raw),
     }
@@ -69,6 +71,7 @@ export class SyncOrchestrator {
   }
 
   private toDto(roomId: string, raw: SyncRawEvent): EventDto {
+    const txnId = raw.unsigned?.transaction_id ?? (typeof raw.txn_id === 'string' ? raw.txn_id : undefined)
     const body = typeof raw.content.body === 'string' ? raw.content.body : ''
     const formattedBody =
       typeof raw.content.formatted_body === 'string' ? raw.content.formatted_body : undefined
@@ -81,7 +84,9 @@ export class SyncOrchestrator {
       body,
       formattedBody,
       isEncrypted: isEncrypted(raw),
-      syncState: 'synced',
+      syncState: txnId ? (this.pendingQueue.isActive(txnId) ? 'sending' : 'synced') : 'synced',
+      txnId,
+      errorText: undefined,
     }
   }
 }

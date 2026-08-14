@@ -81,4 +81,34 @@ describe('BatchedStoreManager', () => {
 
     expect(manager.events.map((e) => e.id)).toEqual(['$1', '$2', '$3'])
   })
+
+  it('replaces a buffered optimistic event with the echo carrying the same txnId', () => {
+    const manager = new BatchedStoreManager(manualScheduler())
+    const optimistic: EventDto = { ...evt('local-t1'), txnId: 't1', syncState: 'sending' }
+    const echo: EventDto = { ...evt('$1'), txnId: 't1', syncState: 'synced' }
+    manager.pushEvents([optimistic])
+    manager.pushEvents([echo])
+    manager.flushToUI()
+
+    expect(manager.events.map((e) => e.id)).toEqual(['$1'])
+  })
+
+  it('replaces an already-flushed optimistic event with the echo carrying the same txnId', () => {
+    const manager = new BatchedStoreManager(instantScheduler())
+    const optimistic: EventDto = { ...evt('local-t1'), txnId: 't1', syncState: 'sending' }
+    manager.pushEvents([optimistic])
+    expect(manager.events.map((e) => e.id)).toEqual(['local-t1'])
+
+    manager.pushEvents([{ ...evt('$1'), txnId: 't1', syncState: 'synced' }])
+    expect(manager.events.map((e) => e.id)).toEqual(['$1'])
+  })
+
+  it('upsertByTxnId adds an event when no row carries that txnId', () => {
+    const manager = new BatchedStoreManager(manualScheduler())
+    const event: EventDto = { ...evt('$1'), txnId: 't1' }
+    manager.upsertByTxnId(event)
+    manager.flushToUI()
+
+    expect(manager.events.map((e) => e.id)).toEqual(['$1'])
+  })
 })

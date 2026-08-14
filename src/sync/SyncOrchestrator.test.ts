@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto'
 
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { MatrixClient } from 'matrix-js-sdk'
 
 import { db } from '$storage/db'
 import { BatchedStoreManager } from '$stores/batchedStore.svelte'
@@ -156,6 +157,106 @@ describe('SyncOrchestrator', () => {
     await orchestrator.handleSync({ next_batch: 's2', rooms: { join: {} } })
     expect(store.events).toHaveLength(0)
     expect((await db.rooms.toArray()).length).toBe(0)
+  })
+
+  it('replaces the optimistic local row with the echo that carries the same txnId', async () => {
+    const sendMessage = vi.fn().mockResolvedValue({ event_id: '$1' })
+    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1') } as unknown as MatrixClient
+    const store = new BatchedStoreManager(instantScheduler())
+    const queue = new PendingQueueService(undefined, client, store)
+    const orchestrator = new SyncOrchestrator(alice, queue, store)
+
+    await queue.sendMessage(alice, roomId, { body: 'hello', msgtype: 'm.text' })
+    expect(store.events).toHaveLength(1)
+    expect(store.events[0].id).toBe('local-txn-1')
+
+    await orchestrator.handleSync(
+      sync({
+        rooms: {
+          join: {
+            [roomId]: {
+              timeline: {
+                prev_batch: 't0',
+                events: [
+                  {
+                    event_id: '$1',
+                    origin_server_ts: 1000,
+                    sender: alice,
+                    type: 'm.room.message',
+                    content: { body: 'hello' },
+                    txn_id: 'txn-1',
+                  },
+                ],
+              },
+            },
+          },
+        },
+      }),
+    )
+
+    expect(store.events).toHaveLength(1)
+    expect(store.events[0].id).toBe('$1')
+    expect(store.events[0].syncState).toBe('synced')
+    expect(store.events[0].txnId).toBe('txn-1')
+  })
+
+  it('retry after failure resends with the same txnId and the late echo does not duplicate', async () => {
+    const sendMessage = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValueOnce({ event_id: '$1' })
+    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1') } as unknown as MatrixClient
+    const store = new BatchedStoreManager(instantScheduler())
+    const queue = new PendingQueueService(3, client, store)
+    const orchestrator = new SyncOrchestrator(alice, queue, store)
+
+    await expect(
+      queue.sendMessage(alice, roomId, { body: 'hi', msgtype: 'm.text' }),
+    ).rejects.toThrow('network down')
+    expect(store.events).toHaveLength(1)
+    expect(store.events[0]).toMatchObject({ id: 'local-txn-1', syncState: 'failed' })
+
+    await queue.retry(alice, 'txn-1')
+
+    expect(sendMessage).toHaveBeenCalledTimes(2)
+    expect(sendMessage).toHaveBeenLastCalledWith(roomId, { body: 'hi', msgtype: 'm.text' }, 'txn-1')
+    expect(store.events[0]).toMatchObject({ syncState: 'sending' })
+    expect(await db.pendingEvents.get(`${alice}:txn-1`)).toBeUndefined()
+    expect((await db.events.get([alice, roomId, '$1']))?.syncState).toBe('synced')
+
+    const echo = sync({
+      rooms: {
+        join: {
+          [roomId]: {
+            timeline: {
+              prev_batch: 't0',
+              events: [
+                {
+                  event_id: '$1',
+                  origin_server_ts: 1000,
+                  sender: alice,
+                  type: 'm.room.message',
+                  content: { body: 'hi' },
+                  txn_id: 'txn-1',
+                },
+              ],
+            },
+          },
+        },
+      },
+    })
+
+    await orchestrator.handleSync(echo)
+    expect(store.events).toHaveLength(1)
+    expect(store.events[0]).toMatchObject({ id: '$1', syncState: 'synced', txnId: 'txn-1' })
+
+    await orchestrator.handleSync(echo)
+    expect(store.events).toHaveLength(1)
+    const rows = await db.events
+      .where('[userId+roomId+eventId]')
+      .equals([alice, roomId, '$1'])
+      .toArray()
+    expect(rows).toHaveLength(1)
   })
 
   it('marks m.room.encrypted events as isEncrypted and hides the ciphertext envelope', async () => {

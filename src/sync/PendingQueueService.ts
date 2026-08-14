@@ -1,12 +1,30 @@
-import { db, type EventModel, type PendingEventModel } from '$storage/db'
+import { db, type PendingEventModel } from '$storage/db'
 import { promotePendingToSynced } from '$storage/promote'
+import type { BatchedStoreManager } from '$stores/batchedStore.svelte'
+import type { EventDto } from '$types/dto'
+import type { MatrixClient, TimelineEvents } from 'matrix-js-sdk'
 
 const DEFAULT_RETRY_LIMIT = 3
+
+const activeQueues: PendingQueueService[] = []
+
+export function getActiveQueue(): PendingQueueService | undefined {
+  return activeQueues.at(-1)
+}
+
+export function registerQueue(queue: PendingQueueService): PendingQueueService {
+  activeQueues.push(queue)
+  return queue
+}
 
 export class PendingQueueService {
   private readonly activeTxnIds = new Set<string>()
 
-  constructor(private readonly retryLimit: number = DEFAULT_RETRY_LIMIT) {}
+  constructor(
+    private readonly retryLimit: number = DEFAULT_RETRY_LIMIT,
+    private readonly client?: MatrixClient,
+    private readonly store?: BatchedStoreManager,
+  ) {}
 
   async restore(): Promise<void> {
     const rows = await db.pendingEvents.toArray()
@@ -17,6 +35,7 @@ export class PendingQueueService {
           await db.pendingEvents.update(row.userAndTxnId, {
             status: 'failed',
             errorText: 'Превышен лимит попыток отправки',
+            retryCount: this.retryLimit,
           })
           status = 'failed'
         } else {
@@ -27,6 +46,47 @@ export class PendingQueueService {
       if (status !== 'failed') {
         this.activeTxnIds.add(row.txnId)
       }
+      this.publishOptimistic(
+        row.userId,
+        row.roomId,
+        row.content,
+        row.txnId,
+        status === 'failed' ? 'failed' : 'sending',
+        status === 'failed' ? row.errorText : undefined,
+      )
+    }
+  }
+
+  async sendMessage(
+    userId: string,
+    roomId: string,
+    content: Record<string, unknown>,
+  ): Promise<string> {
+    if (!this.client) throw new Error('MatrixClient не инициализирован')
+
+    const txnId = this.client.makeTxnId()
+    const pending: PendingEventModel = {
+      userAndTxnId: `${userId}:${txnId}`,
+      txnId,
+      userId,
+      roomId,
+      content,
+      status: 'sending',
+      createdAt: Date.now(),
+      retryCount: 0,
+    }
+    await db.pendingEvents.add(pending)
+    this.activeTxnIds.add(txnId)
+    this.publishOptimistic(userId, roomId, content, txnId, 'sending')
+
+    try {
+      const eventId = await this.sendAndPromote(userId, roomId, content, txnId)
+      this.activeTxnIds.delete(txnId)
+      return eventId
+    } catch (error) {
+      await this.recordFailure(userId, txnId, error)
+      this.publishOptimistic(userId, roomId, content, txnId, 'failed', this.errorMessage(error))
+      throw error
     }
   }
 
@@ -60,23 +120,123 @@ export class PendingQueueService {
     roomId: string,
     txnId: string,
     eventId: string,
-    syncedData: Partial<EventModel>,
+    syncedData: {
+      originServerTs: number
+      sender: string
+      type: string
+      content: Record<string, unknown>
+      isEncrypted: boolean
+    },
   ): Promise<void> {
     await promotePendingToSynced(userId, roomId, txnId, eventId, syncedData)
     this.activeTxnIds.delete(txnId)
   }
 
-  async recordFailure(userId: string, txnId: string, errorText: string): Promise<void> {
+  async recordFailure(userId: string, txnId: string, error: unknown): Promise<void> {
     const userAndTxnId = `${userId}:${txnId}`
-    const row = await db.pendingEvents.get(userAndTxnId)
-    if (!row) return
-    const retryCount = row.retryCount + 1
-    if (retryCount >= this.retryLimit) {
-      await db.pendingEvents.update(userAndTxnId, { status: 'failed', retryCount, errorText })
+    const pending = await db.pendingEvents.get(userAndTxnId)
+    if (!pending) return
+
+    const retryCount = pending.retryCount + 1
+    const status = retryCount >= this.retryLimit ? 'failed' : 'pending'
+    const errorText = this.errorMessage(error)
+
+    await db.pendingEvents.update(userAndTxnId, {
+      status,
+      retryCount,
+      errorText: status === 'failed' ? errorText : undefined,
+    })
+
+    if (status === 'failed') {
       this.activeTxnIds.delete(txnId)
-    } else {
-      await db.pendingEvents.update(userAndTxnId, { status: 'pending', retryCount })
     }
+  }
+
+  async retry(userId: string, txnId: string): Promise<void> {
+    const userAndTxnId = `${userId}:${txnId}`
+    const pending = await db.pendingEvents.get(userAndTxnId)
+    if (!pending || pending.retryCount === 0) return
+
+    await db.pendingEvents.update(userAndTxnId, {
+      status: 'pending',
+      retryCount: 0,
+      errorText: undefined,
+    })
+    this.activeTxnIds.add(txnId)
+    this.publishOptimistic(userId, pending.roomId, pending.content, txnId, 'sending')
+
+    if (!this.client) return
+
+    try {
+      await this.sendAndPromote(userId, pending.roomId, pending.content, txnId)
+      this.activeTxnIds.delete(txnId)
+    } catch (error) {
+      await this.recordFailure(userId, txnId, error)
+      this.publishOptimistic(
+        userId,
+        pending.roomId,
+        pending.content,
+        txnId,
+        'failed',
+        this.errorMessage(error),
+      )
+    }
+  }
+
+  private async sendAndPromote(
+    userId: string,
+    roomId: string,
+    content: Record<string, unknown>,
+    txnId: string,
+  ): Promise<string> {
+    if (!this.client) throw new Error('MatrixClient не инициализирован')
+    const response = await this.client.sendMessage(
+      roomId,
+      content as unknown as TimelineEvents['m.room.message'],
+      txnId,
+    )
+    await promotePendingToSynced(userId, roomId, txnId, response.event_id, {
+      originServerTs: Date.now(),
+      sender: userId,
+      type: 'm.room.message',
+      content,
+      isEncrypted: false,
+    })
+    return response.event_id
+  }
+
+  private publishOptimistic(
+    userId: string,
+    roomId: string,
+    content: Record<string, unknown>,
+    txnId: string,
+    syncState: 'sending' | 'failed',
+    errorText?: string,
+  ): void {
+    if (!this.store) return
+    const dto: EventDto = {
+      id: `local-${txnId}`,
+      roomId,
+      sender: userId,
+      originServerTs: Date.now(),
+      type: 'm.room.message',
+      body: typeof content.body === 'string' ? content.body : '',
+      formattedBody:
+        typeof content.formatted_body === 'string' ? content.formatted_body : undefined,
+      isEncrypted: false,
+      syncState,
+      txnId,
+      errorText,
+    }
+    this.store.pushEvents([dto])
+  }
+
+  private errorMessage(error: unknown): string {
+    return typeof error === 'string'
+      ? error
+      : error instanceof Error
+        ? error.message
+        : 'Неизвестная ошибка'
   }
 
   reset(): void {

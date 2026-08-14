@@ -74,6 +74,28 @@ describe('toSyncRawEvent', () => {
     })
   })
 
+  it('maps the txn id from unsigned.transaction_id when the top-level txn_id is absent', () => {
+    const raw = toSyncRawEvent(
+      new MatrixEvent({
+        event_id: '$echo',
+        origin_server_ts: 2000,
+        sender: alice,
+        type: 'm.room.message',
+        content: { body: 'echo' },
+        unsigned: { transaction_id: 'txn-echo' },
+      }),
+    )
+
+    expect(raw).toEqual({
+      event_id: '$echo',
+      origin_server_ts: 2000,
+      sender: alice,
+      type: 'm.room.message',
+      content: { body: 'echo' },
+      txn_id: 'txn-echo',
+    })
+  })
+
   it('defaults to empty strings when id or sender are missing', () => {
     const raw = toSyncRawEvent(
       new MatrixEvent({ origin_server_ts: 5, type: 'm.room.message', content: {} }),

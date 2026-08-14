@@ -1,4 +1,4 @@
-import type { SyncState } from '$storage/db'
+export type SyncState = 'synced' | 'pending' | 'sending' | 'failed'
 
 export interface EventDto {
   id: string
@@ -10,7 +10,9 @@ export interface EventDto {
   formattedBody?: string
   isEncrypted: boolean
   syncState: SyncState
+  txnId?: string
   decryptionError?: string
+  errorText?: string
   mediaUrl?: string
   aspectRatio?: number
   replyTo?: {

@@ -5,6 +5,9 @@ export interface SyncRawEvent {
   type: string
   content: Record<string, unknown>
   txn_id?: string
+  unsigned?: {
+    transaction_id?: string
+  }
 }
 
 export interface SyncRoomTimeline {

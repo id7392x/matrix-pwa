@@ -20,7 +20,7 @@ export function toSyncRawEvent(event: MatrixEvent): SyncRawEvent {
     sender: event.getSender() ?? '',
     type: event.getType(),
     content: event.getContent(),
-    txn_id: event.getTxnId(),
+    txn_id: event.getTxnId() ?? event.getUnsigned().transaction_id,
   }
 }
 
