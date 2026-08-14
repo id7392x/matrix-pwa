@@ -29,12 +29,13 @@
 | Слайс 1 — UI на моках | `57ddc4c` | `uiStore` (hash-навигация), `LoginScreen`, `RoomList`/`RoomListItem`, `Timeline`/`TimelineItem`, `App.svelte`, demo-sync `startDemoSync` |
 | Хардненинг безопасности | `8991f36`, `502ff63` | runtime-валидация `promotePendingToSynced`, guard `decodeURIComponent` в `uiStore`, `isEncrypted` из типа события |
 | Слайс 2 — `LegacySyncProvider` | `b31d7ea`, `44437f4`, `4d5123d`, `dd5a569`, `de0485a` | реальный `/sync` (адаптер `MatrixEvent`/`Room` → `SyncRawEvent`/`SyncJoinedRoom`), `startLegacySync`, restore сессии, https-fallback baseUrl, защита от malformed sync |
-| Слайс 3 — Отправка сообщений | `4eba646` | `PendingQueueService.sendMessage` (client.sendMessage + dual-path promote по `txn_id`/`unsigned.transaction_id`), optimistic UI (`sending`→`synced`), `failed`+кнопка Retry, `batchedStore.upsertByTxnId`, тxnId в `EventDto` |
+| Слайс 3 — Отправка сообщений | `4eba646` | `PendingQueueService.sendMessage` (client.sendMessage + dual-path promote по `txn_id`/`unsigned.transaction_id`), optimistic UI (`sending`→`synced`), `failed`+кнопка Retry, тxnId в `EventDto` |
 | Слайс 4 — Авторизация | (см. §7.5) | вход по паролю (`authService.login`, `m.login.password` + `refresh_token`), auto-refresh через `tokenRefreshFunction` (ротация), `restoreSession` из refresh-токена, `LoginScreen` с полем пароля, `pendingQueue.restore()` + GC доставленных сирот, logout по `Session.logged_out` |
+| Ревью-батч (фиксы по итогам ревью домена) | `2dd3072`, `6bcc411`, `aeb577e`, `409ea1d` | echo всегда promote (stale txnId не осиротит), `restore()` переотправляет pending, последний `lastEventTs` не затирается пустым timeline, per-event try/catch в `handleSync`, state-события не попадают в ленту, batchedStore upsert-by-id + отмена pending flush, история навигации чистится при logout, seed refresh-токена без deadlock, normalizeHomeserver (trim + trailing slash), единый `toEventDto`/`SyncState`, удаление мёртвого кода (`MockSyncProvider`, `GlassCard`, `switchAccount`, `getRefreshToken`, `roomStore.load/upsert/updateUnread`, `batchedStore.upsertByTxnId`) |
 
 ### Текущее состояние проверок
 
-`pnpm run check` — 0 errors, `pnpm test` — 105/105, `pnpm run lint` — clean.
+`pnpm run check` — 0 errors, `pnpm test` — 136/136, `pnpm run lint` — clean.
 
 ---
 
@@ -75,7 +76,7 @@
 - Экран входа: homeserver, userId, deviceId, accessToken → `AccountManager.addAccount` + `setAccessToken` (sessionStorage).
 - Экран комнат: `roomStore.sortedRooms` (`RoomDto`), карточки комнаты, счётчик непрочитанного.
 - Экран ленты: `batchedStore.events` (`EventDto`), рендер `m.room.message`, батч-доставка через `flushToUI`.
-- Демо-запуск: подключение `MockSyncProvider` → `SyncOrchestrator` в старте приложения (dev-режим).
+- Демо-запуск: подключение `MockSyncProvider` → `SyncOrchestrator` в старте приложения (dev-режим). *(удалён как мёртвый код в ревью-батче — демо идёт через `LegacySyncProvider`)*
 - Навигация на нативном `location.hash` без роутер-библиотеки: `#/login`, `#/rooms`, `#/room/:roomId` + слушатель `hashchange`. Кнопка «Назад» браузера и прямая ссылка на комнату работают с первого слайса (двухколоночный layout на desktop, одиночный на мобильном).
 
 **Out of scope**
@@ -97,8 +98,8 @@
 1. `uiStore`: `openRoom(roomId)`/`openLogin()` меняют текущий экран и синхронизируются с `location.hash`; переход «Назад» возвращает предыдущий экран; открытие комнаты чистит нерелевантный стейт.
 2. Маппинг `RoomDto`→пропсы карточки: `lastEventTs` формат, fallback имени (уже покрыт `toRoomDto`).
 3. `TimelineItem`: `EventDto.syncState==='sending'`/`'failed'` → индикатор статуса отправки.
-4. Рендер-тест `LoginScreen`: сабмит вызывает `AccountManager.addAccount` + `setAccessToken` и переключает на комнаты.
-5. Интеграция: `MockSyncProvider.start()` → `handleSync` → `roomStore` и `batchedStore` обновились (сквозной на happy-dom).
+4. Рендер-тест `LoginScreen`: сабмит вызывает `authService.login` и переключает на комнаты.
+5. Интеграция: `LegacySyncProvider.start()` → `handleSync` → `roomStore` и `batchedStore` обновились (сквозной на happy-dom). *(мок-интеграция удалена вместе с `MockSyncProvider`)*
 
 ### 4.5. Приёмка (Definition of Done)
 

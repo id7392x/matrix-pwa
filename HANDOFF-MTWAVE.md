@@ -11,21 +11,22 @@
 ## Что уже есть / чего нет (снимок на момент вступления)
 
 ### Уже есть (закоммичено)
-- Инфраструктура: Svelte 5 (Runes), TypeScript strict, Vite, Vitest (105 тестов), Tailwind (glassmorphism), pre-commit гейт `check`/`test`/`lint`, GitHub Actions.
+- Инфраструктура: Svelte 5 (Runes), TypeScript strict, Vite, Vitest (136 тестов), Tailwind (glassmorphism), pre-commit гейт `check`/`test`/`lint`, GitHub Actions.
 - Хранилище: Dexie-схема (комнаты, события, pendingEvents), `promotePendingToSynced`, Web Locks.
 - Домен синка: `ISyncProvider` + `LegacySyncProvider` (реальный `/sync`), `SyncOrchestrator`, `PendingQueueService`, `AccountManager`, DTO-типы.
 - **Отправка сообщений (Слайс 3):** optimistic UI, dual-path promote, статусы `sending`/`failed`, кнопка Retry.
 - **UI (Слайс 1, на моках/реальных данных):** экран логина (`LoginScreen`), список комнат (`RoomList`), лента сообщений (`Timeline`), hash-навигация. Это рабочий прототип — **дизайн не финален**, есть где развернуться.
-- Безопасность: валидация входящих событий, флаг `isEncrypted` для зашифрованных событий.
+- Безопасность: валидация входящих событий, флаг `isEncrypted` для зашифрованных событий, `normalizeHomeserver` (trim + trailing slash).
+- Авторизация (Слайс 4): вход по паролю с refresh-токеном, auto-refresh, `restoreSession`.
 
 ### Чего ещё нет
-- Авторизация по паролю/SSO с refresh-токеном (Слайс 4 — следующий, делает `<repo-owner>`).
+- SSO (`m.login.sso`/`m.login.token`) — подзадача Слайса 4, не реализована.
 - E2EE (Слайс 5), история/пагинация/виртуализация/медиа (Слайс 6), multi-tab (Слайс 7).
-- Финальный дизайн UI: виртуализация списков, превью ленты (`lastEventText`), рендер rich-текста (`formattedBody` + DOMPurify), медиа — не сделаны.
+- Финальный дизайн UI: виртуализация списков, превью ленты, рендер rich-текста (`formattedBody` + DOMPurify), медиа — не сделаны.
 - E2EE/WASM, строгий CSP — не внедрены.
 
 ### Как посмотреть текущий UI
-`pnpm install` → `pnpm dev` → `http://localhost:5173` → ввести любой homeserver/токен (данные моковые, сеть не нужна).
+`pnpm install` → `pnpm dev` → `http://localhost:5173` → логин по паролю (нужен живой аккаунт на homeserver — реальный `/sync` с токеном вручную, автотестов на живую сеть нет).
 
 ## Экскурсия (агент проводит новому участнику в чате)
 
