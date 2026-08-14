@@ -28,10 +28,12 @@
 | DTO-граница комнат | `6420734` | `roomStore` отдаёт UI только `RoomDto` (`toRoomDto`) |
 | Слайс 1 — UI на моках | `57ddc4c` | `uiStore` (hash-навигация), `LoginScreen`, `RoomList`/`RoomListItem`, `Timeline`/`TimelineItem`, `App.svelte`, demo-sync `startDemoSync` |
 | Хардненинг безопасности | `8991f36`, `502ff63` | runtime-валидация `promotePendingToSynced`, guard `decodeURIComponent` в `uiStore`, `isEncrypted` из типа события |
+| Слайс 2 — `LegacySyncProvider` | `b31d7ea`, `44437f4`, `4d5123d`, `dd5a569`, `de0485a` | реальный `/sync` (адаптер `MatrixEvent`/`Room` → `SyncRawEvent`/`SyncJoinedRoom`), `startLegacySync`, restore сессии, https-fallback baseUrl, защита от malformed sync |
+| Слайс 3 — Отправка сообщений | `4eba646` | `PendingQueueService.sendMessage` (client.sendMessage + dual-path promote по `txn_id`/`unsigned.transaction_id`), optimistic UI (`sending`→`synced`), `failed`+кнопка Retry, `batchedStore.upsertByTxnId`, тxnId в `EventDto` |
 
 ### Текущее состояние проверок
 
-`pnpm run check` — 0 errors, `pnpm test` — 68/68, `pnpm run lint` — clean.
+`pnpm run check` — 0 errors, `pnpm test` — 105/105, `pnpm run lint` — clean.
 
 ---
 
@@ -40,11 +42,12 @@
 | # | Слайс | Зависимости | Владелец | Статус |
 |---|---|---|---|---|
 | 1 | UI на моках (логин, комнаты, лента) | доменный слой, `RoomDto`-граница | общий | **выполнен** |
-| 2 | `LegacySyncProvider` (реальный `/sync`) | слайс 1 | `<repo-owner>` | **следующий** |
-| 3 | Отправка сообщений (`/send` + dual-path) | слайсы 1–2 | `<repo-owner>` | запланирован |
-| 4 | E2EE Cold Start + re-decryption | слайс 2 | `<repo-owner>` | запланирован |
-| 5 | История, пагинация, retention, медиа-кэш | слайсы 2–3 | свободен (кандидат — `mtwave`, решит сам) | запланирован |
-| 6 | Multi-tab (Master/Slave) + Lazy-sync | слайсы 2, 4 | свободен (кандидат — `mtwave`, решит сам) | запланирован |
+| 2 | `LegacySyncProvider` (реальный `/sync`) | слайс 1 | `<repo-owner>` | **выполнен** |
+| 3 | Отправка сообщений (`/send` + dual-path) | слайсы 1–2 | `<repo-owner>` | **выполнен** |
+| 4 | Авторизация: пароль + refresh-токен (+ SSO) | слайсы 1–3 | `<repo-owner>` | **следующий** |
+| 5 | E2EE Cold Start + re-decryption | слайсы 2, 4 | `<repo-owner>` | запланирован |
+| 6 | История, пагинация, retention, медиа-кэш | слайсы 2–4 | свободен (кандидат — `mtwave`, решит сам) | запланирован |
+| 7 | Multi-tab (Master/Slave) + Lazy-sync | слайсы 2, 4, 5 | свободен (кандидат — `mtwave`, решит сам) | запланирован |
 
 ### 3.1. Дизайн-трек (горизонтальный, не вертикальный слайс)
 
@@ -78,7 +81,8 @@
 - Виртуализация списков: первые версии рендерят через `{#each}` (обоснование — мало данных на моках; виртуализация добавлена с реальным синком, слайс 2+).
 - Реальная аутентификация/пароль: токен вводится вручную, никаких запросов к серверу.
 - Отправка сообщений (слайс 3).
-- E2EE, дешифровка, UTD (слайс 4) — в этом слайсе упоминания E2EE/UTD нет вообще.
+- Авторизация по паролю/SSO и refresh-токен (слайс 4) — в этом слайсе токен вводится вручную.
+- E2EE, дешифровка, UTD (слайс 5) — в этом слайсе упоминания E2EE/UTD нет вообще.
 
 ### 4.3. Файлы
 
@@ -115,7 +119,7 @@
 ### 5.2. Ключевые решения
 
 - Адаптер: `matrix-js-sdk` события (`MatrixEvent`, `Room`) → сырые JSON-типы `SyncResponse`/`SyncRawEvent`/`SyncJoinedRoom` из `src/sync/ISyncProvider.ts`. Маппинг реальных полей (`m.room.name` state-событий, `m.direct` accountData) — ответственность провайдера.
-- Зашифрованные события: `SyncOrchestrator` помечает `isEncrypted = raw.type === 'm.room.encrypted'` (контракт уже реализован); шифр-конверт `content` сохраняется как есть, дешифровка и замена конверта — Слайс 4.
+- Зашифрованные события: `SyncOrchestrator` помечает `isEncrypted = raw.type === 'm.room.encrypted'` (контракт уже реализован); шифр-конверт `content` сохраняется как есть, дешифровка и замена конверта — Слайс 5.
 - `createClient` без crypto (crypto подключается в слайсе 4).
 - Авторизация: токен из `AccountManager.getAccessToken` (RAM/sessionStorage), в БД не попадает.
 - Первый импорт `matrix-js-sdk` обязан проходить в Vitest (при необходимости — тестовый shim/`vi.mock`). WASM/vodozemac на этом слайсе не задействуется (`initRustCrypto` только в слайсе 4); Vite-воркеры заранее не конфигурируем.
@@ -160,13 +164,46 @@
 
 ---
 
-## 7. Слайс 4 — E2EE Cold Start + re-decryption
+## 7. Слайс 4 — Авторизация: пароль + refresh-токен (+ SSO)
 
 ### 7.1. Цель
 
-E2EE по 00-PRINCIPLES §3.3 и 01-АРХ §4: строгий порядок `createClient → initRustCrypto({storePrefix}) → startClient`, UTD-модель и реактивная re-decryption.
+Убрать ручной ввод токена из UI: вход по паролю через `m.login.password` (сервер сам отдаёт `user_id`, `device_id`, `access_token`, `refresh_token`), настройка auto-refresh access-токена через refresh-токен (ротация) и восстановление сессии после перезагрузки из refresh-токена — чтобы пользователю не приходилось вручную вытаскивать/обновлять токен.
 
 ### 7.2. Ключевые решения
+
+- Вход: `client.loginRequest({ type: 'm.login.password', identifier: { type: 'm.id.user', user }, password })` — НЕ deprecated `loginWithPassword` (см. комментарий в SDK: обновляет клиент частично).
+- `createClient` получает `accessToken` + `refreshToken` + `tokenRefreshFunction`: на 401/пред-истечении SDK сам вызывает рефреш (`client.refreshToken(refreshToken)` — ротация), мы пересохраняем новые `accessToken`/`refreshToken` (Dexie `accounts`) и возвращаем их.
+- Хранение: `accessToken` — только RAM/sessionStorage (как сейчас); **`refreshToken` — в `AccountModel.refreshToken` (IndexedDB `accounts`)**, чтобы сессия переживала закрытие браузера. Пароль не хранится и не логируется.
+- `authStore.restoreSession()`: если refresh-токен есть и живой → восстанавливаем сессию без ввода пароля; если протух → тихий `signOut` на экран логина.
+- SSO (`m.login.sso` / `getSsoLoginUrl(redirectUrl, 'sso')` + `loginRequest({ type: 'm.login.token', token })`): будущая подзадача того же слайса (matrix.org поддерживает GitHub/Google/SSO). Реализуется ПОСЛЕ базового парольного флоу; UX: кнопка «Sign in via SSO» → редирект на HS → callback с `loginToken`.
+- `LegacySyncProvider.start()` использует тот же `client`; редирект-флоу SSO требует настройки redirect URL (dev/prod).
+
+### 7.3. TDD-контракт
+
+1. `authService.login` (пароль): мок `/login` → вернулись токены, аккаунт сохранён в `accounts` с `refreshToken`, пароль нигде не сохранён.
+2. Auto-refresh: `tokenRefreshFunction` вызывается при 401 → `client.refreshToken` → новые токены записаны в `accounts` и возвращены SDK.
+3. `restoreSession` из refresh-токена: живой refresh → сессия восстановлена; протухший → `signOut`.
+4. UI `LoginScreen`: поля `deviceId`/`accessToken` удалены, вместо них — пароль; submit → `authService.login`.
+5. SSO (позже): `getSsoLoginUrl` возвращает корректный URL; exchange `loginToken` → `loginRequest(m.login.token)`.
+
+### 7.4. DoD
+
+- [ ] Вход по паролю без ручного ввода токена; access/refresh токены получены от сервера.
+- [ ] Протухший access-токен продлевается автоматически (refresh-token ротация) — без ручного обновления.
+- [ ] Сессия восстанавливается после закрытия/перезагрузки браузера (refresh-токен в `accounts`).
+- [ ] SSO-кнопка работает (подзадача, после базового пароля).
+- [ ] Гейт зелёный; коммит.
+
+---
+
+## 8. Слайс 5 — E2EE Cold Start + re-decryption
+
+### 8.1. Цель
+
+E2EE по 00-PRINCIPLES §3.3 и 01-АРХ §4: строгий порядок `createClient → initRustCrypto({storePrefix}) → startClient`, UTD-модель и реактивная re-decryption.
+
+### 8.2. Ключевые решения
 
 - storePrefix: `matrix-js-sdk:crypto:${userId}:${deviceId}` (изоляция на аккаунт+устройство, общий store запрещён).
 - Обработка событий `/sync` — только после завершения `initRustCrypto`.
@@ -176,13 +213,13 @@ E2EE по 00-PRINCIPLES §3.3 и 01-АРХ §4: строгий порядок `c
 - `$crypto/e2ee.ts` — реализация `IE2EEService` (03 §4.3).
 - Юнит-тесты crypto идут через мок `IE2EEService`/`MockRustCrypto` из `matrix-js-sdk`: WASM-бинарник и воркеры Rust Crypto не загружаются в среде Vitest/happy-dom, поэтому реальная интеграция проверяется вне юнит-тестов. Это обязательное требование слайса, а не опциональный хак.
 
-### 7.3. TDD-контракт
+### 8.3. TDD-контракт
 
 1. Cold Start порядок: события не обрабатываются до готовности crypto (флаг готовности). Проверяется на моке `IE2EEService`.
 2. UTD-переход: таймер 30с Temporary → Permanent. Проверяется на моке `IE2EEService`.
 3. Re-decryption: приход ключа → событие со статусом UTD пере-расшифровывается и перепушивается в сторы. Проверяется на моке `IE2EEService`.
 
-### 7.4. DoD
+### 8.4. DoD
 
 - [ ] Приватная комната расшифровывается по Cold Start Protocol.
 - [ ] UTD-состояния отображаются и авто-перерасшифровываются.
@@ -191,7 +228,7 @@ E2EE по 00-PRINCIPLES §3.3 и 01-АРХ §4: строгий порядок `c
 
 ---
 
-## 8. Слайс 5 — История, retention, медиа-кэш
+## 9. Слайс 6 — История, retention, медиа-кэш
 
 - **Предусловие (до первого рендера `formattedBody`):** санитизация удалённого HTML через DOMPurify (03 §3) и внедрение строгого CSP по 01-АРХ §7 (prod-заголовки или prod-only `<meta>`, не статический CSP в dev — иначе ломается HMR). Рендер `{@html}` разрешён только после санитизации.
 - Пагинация вверх через `timelineGaps` + `/messages` (02-DATA §2, `timelineGaps`).
@@ -201,7 +238,7 @@ E2EE по 00-PRINCIPLES §3.3 и 01-АРХ §4: строгий порядок `c
 
 ---
 
-## 9. Слайс 6 — Multi-tab + Lazy-sync
+## 10. Слайс 7 — Multi-tab + Lazy-sync
 
 - Web Locks: ровно одна Master-вкладка на `userId+deviceId` (лок `matrix_master_${userId}_${deviceId}`), Slave читают из IndexedDB и проксируют команды через `BroadcastChannel` (nonce-handshake, ACK 500 мс).
 - `IMultiTabService` (03 §4.2), перенос accessToken между вкладками только в RAM через handshake.
@@ -210,9 +247,9 @@ E2EE по 00-PRINCIPLES §3.3 и 01-АРХ §4: строгий порядок `c
 
 ---
 
-## 10. Правила выполнения
+## 11. Правила выполнения
 
-1. Порядок слайсов не меняется без явного решения; каждый слайс начинается с TDD-тестов (§ 4–7).
+1. Порядок слайсов не меняется без явного решения; каждый слайс начинается с TDD-тестов (§ 4–10).
 2. Выход за blast radius слайса запрещён (AGENTS.md); правки прошлых слоёв — только если без них слайс невозможен, с фиксацией причины.
 3. Каждый слайс заканчивается коммитом(ами) с зелёным гейтом и обновлением `HANDOFF-<ник>.md`.
 4. Расхождения с 00–03 фиксируются в этих документах, а не в коде-комментариях.
