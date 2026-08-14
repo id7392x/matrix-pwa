@@ -153,11 +153,11 @@ export interface IAccountManager {
   getActiveAccount(): Promise<AccountModel | null>;
   getAccessToken(userId: string): string | null; // Только из RAM / sessionStorage
   setAccessToken(userId: string, token: string): void;
-  getRefreshToken(userId: string): string | null; // Из accounts (IndexedDB) — Слайс 4
-  setTokens(userId: string, tokens: { accessToken?: string; refreshToken?: string }): void; // access → sessionStorage, refresh → accounts
+  getRefreshToken(userId: string): Promise<string | null>; // Из accounts (IndexedDB) — Слайс 4
+  setTokens(userId: string, tokens: { accessToken?: string; refreshToken?: string }): Promise<void>; // access → sessionStorage, refresh → accounts
+  clearRefreshToken(userId: string): Promise<void>; // signOut: удаляет refreshToken из accounts
   switchAccount(userId: string): Promise<void>;
 }
-
 ```
 **4.2. Multi-Tab & Web Locks (multiTab.ts)**  
 ```

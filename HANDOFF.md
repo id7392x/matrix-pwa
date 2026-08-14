@@ -5,8 +5,8 @@
 
 ## 1. Общее состояние репозитория
 
-- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, **HEAD: `4eba646`, 45 коммитов**, **запушен в `origin`** (`github.com/<repo-owner>/matrix-pwa`, **публичный**). Слайсы 2 и 3 выполнены и запушены. История подписана (SSH, GitHub: Verified) — код — автор `<repo-owner>` + ровно один трейлер `Co-authored-by: OpenCode <opencode-agent[bot]@users.noreply.github.com>`, доки — автор `OpenCode <opencode-agent[bot]@users.noreply.github.com>` без трейлера. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
-- Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` **105/105**, `pnpm run lint` чисто. Pre-commit хук (simple-git-hooks) прогоняется автоматически на каждом коммите.
+- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, **HEAD: `4eba646`, 45 коммитов**, **запушен в `origin`** (`github.com/<repo-owner>/matrix-pwa`, **публичный**). Слайсы 2, 3 запушены; слайс 4 (авторизация) — локально, ждёт пуша. История подписана (SSH, GitHub: Verified) — код — автор `<repo-owner>` + ровно один трейлер `Co-authored-by: OpenCode <opencode-agent[bot]@users.noreply.github.com>`, доки — автор `OpenCode <opencode-agent[bot]@users.noreply.github.com>` без трейлера. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
+- Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` **117/117**, `pnpm run lint` чисто. Pre-commit хук (simple-git-hooks) прогоняется автоматически на каждом коммите.
 - **GitHub Ruleset «Protect main»**: люди — только через PR (1 approval + статус-чек `gate` + signed commits); `<repo-owner>` — bypass на прямой push (проверено эмпирически: пуш проходит, лишь warning «Required status check 'gate' is expected»). ⚠️ Проверить вручную во вкладке Bypass: там должен быть ТОЛЬКО `<repo-owner>`.
 - **GitHub Actions** (`acd2798`): гейт `pnpm check/test/lint` на push и pull_request.
 - **Push-политика по трекам**: `<repo-owner>` — только локальные коммиты, пуш в `origin` после явного словесного подтверждения; `mtwave` — только свои feature-ветки (подробности — `AGENTS.md`).
@@ -53,8 +53,8 @@
 | Stage 0–1 | инфраструктура, хранилище, домен, UI на моках | общий | выполнено |
 | 2 | `LegacySyncProvider` (реальный `/sync`) | `<repo-owner>` | **выполнен** (`b31d7ea`, запушен) |
 | 3 | Отправка сообщений (optimistic UI + dual-path + retry) | `<repo-owner>` | **выполнен** (`4eba646`, запушен) |
-| 4 | Авторизация: пароль + refresh-токен (+ SSO) | `<repo-owner>` | **следующий** |
-| 5 | E2EE Cold Start + re-decryption | `<repo-owner>` | запланирован |
+| 4 | Авторизация: пароль + refresh-токен (+ SSO) | `<repo-owner>` | **выполнен** (локально; базовый пароль, SSO — подзадача) |
+| 5 | E2EE Cold Start + re-decryption | `<repo-owner>` | **следующий** |
 | 6 | История, пагинация, retention, медиа-кэш | свободен (кандидат — `mtwave`, решит сам) | запланирован |
 | 7 | Multi-tab + Lazy-sync | свободен (кандидат — `mtwave`, решит сам) | запланирован |
 | Дизайн-трек (Д1–Д2) | горизонтальный, не вертикальный слайс | свободен | не начат |
@@ -74,29 +74,27 @@
 - **Vitest-готча:** рендер-тесты Svelte требуют `resolve.conditions: ['browser']` в `vite.config.ts` — иначе `mount` из `svelte` резолвится в server-сборку (`lifecycle_function_unavailable`). Не удалять. Дополнительно: SDK `matrix-js-sdk` (ESM с directory-imports, напр. `../http-api`) в Node-резолве падает — обязателен `test.server.deps.inline: [/matrix-js-sdk/]` (Vite резолвит `.ts`/индексные импорты). Не удалять.
 - **Репо публичное** — ничего лишнего в файлы/историю (в авторских строках только GitHub noreply, без личных email).
 
-## 4. Трек `<repo-owner>` — следующий шаг: Слайс 4 — Авторизация (`docs/04-ROADMAP.md` §7)
+## 4. Трек `<repo-owner>` — следующий шаг: Слайс 5 — E2EE Cold Start (`docs/04-ROADMAP.md` §8)
 
-Слайсы 2 и 3 выполнены и запушены в `origin` (`b31d7ea`, `4eba646`). DoD Слайса 3 закрыт: optimistic UI (sending→synced через эхо), `failed` + кнопка Retry, дубликат исключён (dual-path promote), гейт зелёный, 105/105 тестов.
+Слайс 4 (Авторизация) выполнен локально: вход по паролю через `authService.login` (`m.login.password` + `refresh_token`), auto-refresh через `tokenRefreshFunction` (ротация, токены персистятся в `accounts`), `restoreSession` из refresh-токена без пароля, `LoginScreen` — поле пароля вместо ручного токена. DoD базового пароля закрыт; SSO (`m.login.sso`/`m.login.token`) — открытая подзадача.
 
-Цель Слайса 4: убрать ручной ввод/обновление токена. Сейчас пользователь вставляет вручную `deviceId`/`accessToken` в `LoginScreen`; когда токен протухает — SDK выдаёт `M_UNKNOWN_TOKEN` «Unable to refresh token - no refresh token or refresh function» (потому что `createClient` создаётся без `refreshToken`/`tokenRefreshFunction`, `legacySync.ts:24`).
-
-TDD-контракт (04 §7.3):
-1. `authService.login` (пароль, `m.login.password` через `client.loginRequest`, НЕ deprecated `loginWithPassword`): аккаунт сохранён с `refreshToken`, пароль не в БД/логах.
-2. Auto-refresh: `tokenRefreshFunction` в `createClient` → на 401/пред-истечении `client.refreshToken(refreshToken)` (ротация) → новые токены персистятся в `accounts`.
-3. `authStore.restoreSession()`: живой refresh-токен → сессия восстановлена без пароля; протухший → тихий `signOut`.
-4. UI `LoginScreen`: удалить поля `deviceId`/`accessToken`, добавить пароль; submit → `authService.login`.
-5. SSO (`m.login.sso`, `getSsoLoginUrl(redirectUrl, 'sso')` + `loginRequest({type:'m.login.token'})`) — подзадача ПОСЛЕ базового пароля.
+TDD-контракт Слайса 5 (04 §8.3):
+1. Cold Start порядок: события не обрабатываются до готовности crypto (флаг готовности). Проверяется на моке `IE2EEService`.
+2. UTD-переход: таймер 30с Temporary → Permanent. Проверяется на моке `IE2EEService`.
+3. Re-decryption: приход ключа → UTD-событие пере-расшифровывается и перепушивается в сторы. Проверяется на моке `IE2EEService`.
 
 Ключевые изменения:
-- `src/storage/db.ts`: добавить `refreshToken?: string` в `AccountModel` (обновить контракт в `docs/03-REFERENCE-CODE.md`, уже актуализирован).
-- `src/lib/accountManager.ts`: `getRefreshToken`/`setTokens` (access → sessionStorage, refresh → accounts).
-- `src/lib/authService.ts` (new): `login(homeserver, userId, password)` → `loginRequest` → персист.
-- `src/lib/legacySync.ts`: `createClient({ accessToken, refreshToken, tokenRefreshFunction })`.
-- `src/stores/authStore.svelte.ts`: `restoreSession()` из refresh; `signOut()` — чистить refresh.
-- `src/components/LoginScreen.svelte`: форма пароля.
-- Бонус (P1 из аудита): `await pendingQueue.restore()` в `startLegacySync` + GC сирот `pendingEvents`.
+- `src/crypto/e2ee.ts` — реализация `IE2EEService` (03 §4.3): строгий порядок `createClient → initRustCrypto({ storePrefix: matrix-js-sdk:crypto:${userId}:${deviceId} }) → startClient`; события `/sync` — только после готовности crypto.
+- `storePrefix` — изоляция на аккаунт+устройство (00 §3.3.1).
+- `EventModel.decryptionError`, `isEncrypted`, расшифрованный `content` — контракт уже готов.
+- UTD: Temporary → Permanent (30 сек) → re-decryption через `Event.decrypted`.
+- Юнит-тесты — через мок `IE2EEService`/`MockRustCrypto`; WASM/воркеры в Vitest не грузятся (04 §8.2).
 
-Порядок слайса: TDD (тесты на контракты 1–4) → реализация → гейт → коммит `feat(auth): ...` (автор `<repo-owner>` + трейлер), доки отдельным `docs(...)`.
+### Техдолг и хвосты после Слайса 4
+
+- **SSO** (`getSsoLoginUrl` + `m.login.token`) — подзадача Слайса 4, не реализована.
+- **GC сирот:** отклонение от формулировки аудита — удаляются доставленные дубликаты (`txnId` неактивен + событие ЕСТЬ в `events`), а не наоборот; иначе ломается Retry из Слайса 3. Зафиксировано в `04-ROADMAP.md` §7.5.
+- **`isAuthenticated`** теперь определяется по `userId` (refresh-only сессия считается аутентифицированной); `accessToken` при restore из refresh может быть `null` до первого рефреша.
 
 ## 5. Трек `mtwave`
 

@@ -30,6 +30,7 @@
 | Хардненинг безопасности | `8991f36`, `502ff63` | runtime-валидация `promotePendingToSynced`, guard `decodeURIComponent` в `uiStore`, `isEncrypted` из типа события |
 | Слайс 2 — `LegacySyncProvider` | `b31d7ea`, `44437f4`, `4d5123d`, `dd5a569`, `de0485a` | реальный `/sync` (адаптер `MatrixEvent`/`Room` → `SyncRawEvent`/`SyncJoinedRoom`), `startLegacySync`, restore сессии, https-fallback baseUrl, защита от malformed sync |
 | Слайс 3 — Отправка сообщений | `4eba646` | `PendingQueueService.sendMessage` (client.sendMessage + dual-path promote по `txn_id`/`unsigned.transaction_id`), optimistic UI (`sending`→`synced`), `failed`+кнопка Retry, `batchedStore.upsertByTxnId`, тxnId в `EventDto` |
+| Слайс 4 — Авторизация | (см. §7.5) | вход по паролю (`authService.login`, `m.login.password` + `refresh_token`), auto-refresh через `tokenRefreshFunction` (ротация), `restoreSession` из refresh-токена, `LoginScreen` с полем пароля, `pendingQueue.restore()` + GC доставленных сирот, logout по `Session.logged_out` |
 
 ### Текущее состояние проверок
 
@@ -44,7 +45,7 @@
 | 1 | UI на моках (логин, комнаты, лента) | доменный слой, `RoomDto`-граница | общий | **выполнен** |
 | 2 | `LegacySyncProvider` (реальный `/sync`) | слайс 1 | `<repo-owner>` | **выполнен** |
 | 3 | Отправка сообщений (`/send` + dual-path) | слайсы 1–2 | `<repo-owner>` | **выполнен** |
-| 4 | Авторизация: пароль + refresh-токен (+ SSO) | слайсы 1–3 | `<repo-owner>` | **следующий** |
+| 4 | Авторизация: пароль + refresh-токен (+ SSO) | слайсы 1–3 | `<repo-owner>` | **выполнен** (базовый пароль; SSO — подзадача) |
 | 5 | E2EE Cold Start + re-decryption | слайсы 2, 4 | `<repo-owner>` | запланирован |
 | 6 | История, пагинация, retention, медиа-кэш | слайсы 2–4 | свободен (кандидат — `mtwave`, решит сам) | запланирован |
 | 7 | Multi-tab (Master/Slave) + Lazy-sync | слайсы 2, 4, 5 | свободен (кандидат — `mtwave`, решит сам) | запланирован |
@@ -189,11 +190,21 @@
 
 ### 7.4. DoD
 
-- [ ] Вход по паролю без ручного ввода токена; access/refresh токены получены от сервера.
-- [ ] Протухший access-токен продлевается автоматически (refresh-token ротация) — без ручного обновления.
-- [ ] Сессия восстанавливается после закрытия/перезагрузки браузера (refresh-токен в `accounts`).
+- [x] Вход по паролю без ручного ввода токена; access/refresh токены получены от сервера.
+- [x] Протухший access-токен продлевается автоматически (refresh-token ротация) — без ручного обновления.
+- [x] Сессия восстанавливается после закрытия/перезагрузки браузера (refresh-токен в `accounts`).
 - [ ] SSO-кнопка работает (подзадача, после базового пароля).
-- [ ] Гейт зелёный; коммит.
+- [x] Гейт зелёный; коммит.
+
+### 7.5. Итоги слайса
+
+- `authService.ts`: `login(homeserver, userId, password)` через `client.loginRequest({ type: 'm.login.password', identifier: { type: 'm.id.user', user }, password, refresh_token: true })` (НЕ deprecated `loginWithPassword`); `makeTokenRefreshFunction(userId, () => client)` — `client.refreshToken` → `setTokens` (access → sessionStorage, refresh → accounts) → возвращает `{ accessToken, refreshToken, expiry }` для `TokenRefresher` SDK.
+- `startLegacySync(userId, onLoggedOut?)`: `createClient({ accessToken?, refreshToken, tokenRefreshFunction })`; refresh-токен в клиенте позволяет восстанавливать сессию без accessToken (первый 401 → ротация); `Session.logged_out` → `onLoggedOut?.()` + `stopLegacySync`.
+- `authStore.restoreSession()`: живой refresh/access → сессия восстановлена (isAuthenticated по userId); протухший refresh → `Session.logged_out` → тихий `signOut` (чистит refreshToken + `uiStore.openLogin`).
+- `AccountModel.refreshToken` (IndexedDB `accounts`); accessToken — только sessionStorage (Principles §3.2.1, §3.2.1.1).
+- Бонус P1: `await pendingQueue.restore()` в `startLegacySync` + GC сирот: удаляются `pendingEvents`, чей txnId неактивен и сообщение уже доставлено (есть в `events`).
+- SSO (`m.login.sso`/`getSsoLoginUrl` + `m.login.token`) — открытая подзадача.
+- Отклонение от аудита: в HANDOFF была формулировка «GC, где события нет в `events`»; реализовано наоборот (удаляются доставленные дубликаты, не трогая failed-строки для Retry) — иначе ломается кнопка Retry из Слайса 3. Расхождение зафиксировано здесь.
 
 ---
 
