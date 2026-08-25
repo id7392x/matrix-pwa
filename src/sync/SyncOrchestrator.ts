@@ -113,6 +113,7 @@ export class SyncOrchestrator {
   }
 
   private toDecryptedDto(roomId: string, raw: SyncRawEvent, decrypted: { content: Record<string, unknown>; type: string }): EventDto {
+    const txnId = raw.unsigned?.transaction_id ?? (typeof raw.txn_id === 'string' ? raw.txn_id : undefined)
     return toEventDto({
       id: raw.event_id,
       roomId,
@@ -122,10 +123,12 @@ export class SyncOrchestrator {
       content: decrypted.content,
       syncState: 'synced',
       isEncrypted: true,
+      txnId,
     })
   }
 
   private toUtdDto(roomId: string, raw: SyncRawEvent): EventDto {
+    const txnId = raw.unsigned?.transaction_id ?? (typeof raw.txn_id === 'string' ? raw.txn_id : undefined)
     return toEventDto({
       id: raw.event_id,
       roomId,
@@ -136,6 +139,7 @@ export class SyncOrchestrator {
       syncState: 'synced',
       isEncrypted: true,
       decryptionError: UTD_ERROR,
+      txnId,
     })
   }
 }

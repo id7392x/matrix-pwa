@@ -21,6 +21,14 @@ export default defineConfig({
     alias,
     conditions: ['browser'],
   },
+  server: {
+    proxy: {
+      '/_matrix': {
+        target: 'https://matrix.org',
+        changeOrigin: true,
+      },
+    },
+  },
   test: {
     environment: 'happy-dom',
     server: {
