@@ -165,6 +165,7 @@ export async function oidcLogin(
       clientId,
       codeVerifier: oauth2.context.codeVerifier,
       metadata,
+      homeserver: normalizeHomeserver(homeserver),
       redirectUri,
     }),
   )
@@ -177,6 +178,7 @@ interface OidcContext {
   clientId: string
   codeVerifier: string
   metadata: ValidatedAuthMetadata
+  homeserver: string
   redirectUri: string
 }
 
@@ -200,8 +202,9 @@ export async function exchangeOidcCode(
 
   const tokens = await oauth2.completeAuthorizationCodeGrant(code)
 
+  // ponytail: whoami() must hit the Matrix homeserver, not the OIDC issuer
   const client = createClient({
-    baseUrl: ctx.metadata.issuer,
+    baseUrl: ctx.homeserver,
     accessToken: tokens.access_token,
   })
   const whoami = await client.whoami()
@@ -209,7 +212,7 @@ export async function exchangeOidcCode(
   return persistLoginResponse(
     whoami.user_id,
     whoami.device_id ?? 'OIDC_DEVICE',
-    ctx.metadata.issuer,
+    ctx.homeserver,
     tokens.access_token,
     tokens.refresh_token,
   )
