@@ -22,16 +22,18 @@ class AuthStore {
   }
 
   async handleSsoCallback(): Promise<boolean> {
-    const params = new URLSearchParams(location.search)
+    // ponytail: OIDC fragment mode puts params in hash, query mode puts them in search
+    const searchParams = new URLSearchParams(location.search)
+    const hashParams = new URLSearchParams(location.hash.slice(1))
 
-    const code = params.get('code')
-    const state = params.get('state')
+    const code = searchParams.get('code') ?? hashParams.get('code')
+    const state = searchParams.get('state') ?? hashParams.get('state')
     if (code && state) {
       history.replaceState({}, '', location.pathname)
       return this.handleOidcCallback(code, state)
     }
 
-    const loginToken = params.get('loginToken')
+    const loginToken = searchParams.get('loginToken')
     if (!loginToken) return false
     const homeserver = sessionStorage.getItem('sso_homeserver') ?? 'matrix.org'
     sessionStorage.removeItem('sso_homeserver')
