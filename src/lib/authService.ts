@@ -202,7 +202,7 @@ export async function exchangeOidcCode(
 
   const tokens = await oauth2.completeAuthorizationCodeGrant(code)
 
-  // ponytail: whoami() must hit the Matrix homeserver, not the OIDC issuer
+  // ponytail: whoami is a Matrix Client-Server API endpoint — must use homeserver, not issuer
   const client = createClient({
     baseUrl: ctx.homeserver,
     accessToken: tokens.access_token,

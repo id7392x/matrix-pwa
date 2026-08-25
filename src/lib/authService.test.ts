@@ -417,6 +417,7 @@ describe('authService.exchangeOidcCode', () => {
         clientId: 'oidc-client-id',
         codeVerifier: 'test-verifier',
         metadata: oidcMetadata,
+        homeserver: 'https://matrix.org',
         redirectUri: 'http://localhost:5173/',
       }),
     )
@@ -431,7 +432,7 @@ describe('authService.exchangeOidcCode', () => {
   it('throws when state does not match stored state', async () => {
     sessionStorage.setItem(
       'mx_oidc_context',
-      JSON.stringify({ state: 'correct-state', clientId: 'x', codeVerifier: 'v', metadata: oidcMetadata, redirectUri: 'http://localhost:5173/' }),
+      JSON.stringify({ state: 'correct-state', clientId: 'x', codeVerifier: 'v', metadata: oidcMetadata, homeserver: 'https://matrix.org', redirectUri: 'http://localhost:5173/' }),
     )
 
     await expect(exchangeOidcCode('auth-code', 'wrong-state')).rejects.toThrow('State mismatch')
