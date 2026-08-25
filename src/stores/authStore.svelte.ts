@@ -27,6 +27,7 @@ class AuthStore {
     const code = params.get('code')
     const state = params.get('state')
     if (code && state) {
+      history.replaceState({}, '', location.pathname)
       return this.handleOidcCallback(code, state)
     }
 
@@ -45,24 +46,29 @@ class AuthStore {
   }
 
   private async handleOidcCallback(code: string, state: string): Promise<boolean> {
-    history.replaceState({}, '', location.pathname)
     try {
       const result = await exchangeOidcCode(code, state)
       return this.completeLogin(result.userId, result.deviceId, result.homeserver)
     } catch (error) {
+      sessionStorage.removeItem('mx_oidc_context')
       console.error('OIDC code exchange failed', error)
       return false
     }
   }
 
   private completeLogin(userId: string, deviceId: string, homeserver: string): boolean {
-    this.signIn(userId, deviceId, homeserver, accountManager.getAccessToken(userId) ?? '')
+    const token = accountManager.getAccessToken(userId) ?? ''
+    this.signIn(userId, deviceId, homeserver, token)
+    this.startSyncWithAutoSignout(userId)
+    return true
+  }
+
+  private startSyncWithAutoSignout(userId: string): void {
     void startLegacySync(userId, () => {
       void this.signOut()
     }).catch(() => {
       void this.signOut()
     })
-    return true
   }
 
   async restoreSession(): Promise<boolean> {
@@ -74,11 +80,7 @@ class AuthStore {
     this.deviceId = account.deviceId
     this.homeServer = account.homeserver
     this.accessToken = token
-    void startLegacySync(account.userId, () => {
-      void this.signOut()
-    }).catch(() => {
-      void this.signOut()
-    })
+    this.startSyncWithAutoSignout(account.userId)
     return true
   }
 

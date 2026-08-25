@@ -22,18 +22,21 @@ export function normalizeHomeserver(homeserver: string): string {
 }
 
 async function persistLoginResponse(
-  response: { user_id: string; device_id: string; access_token: string; refresh_token?: string },
-  baseUrl: string,
+  userId: string,
+  deviceId: string,
+  homeserver: string,
+  accessToken: string,
+  refreshToken?: string,
 ): Promise<{ userId: string; deviceId: string; homeserver: string }> {
   await accountManager.addAccount({
-    userId: response.user_id,
-    homeserver: baseUrl,
-    deviceId: response.device_id,
+    userId,
+    homeserver,
+    deviceId,
     isPrimary: true,
-    refreshToken: response.refresh_token,
+    refreshToken,
   })
-  accountManager.setAccessToken(response.user_id, response.access_token)
-  return { userId: response.user_id, deviceId: response.device_id, homeserver: baseUrl }
+  accountManager.setAccessToken(userId, accessToken)
+  return { userId, deviceId, homeserver }
 }
 
 export async function login(
@@ -49,7 +52,7 @@ export async function login(
     password,
     refresh_token: true,
   })
-  return persistLoginResponse(response, baseUrl)
+  return persistLoginResponse(response.user_id, response.device_id, baseUrl, response.access_token, response.refresh_token)
 }
 
 // ponytail: unauthenticated /refresh bypasses the SDK TokenRefresher, which
@@ -116,7 +119,7 @@ export async function exchangeSsoLoginToken(
     token: loginToken,
     refresh_token: true,
   })
-  return persistLoginResponse(response, baseUrl)
+  return persistLoginResponse(response.user_id, response.device_id, baseUrl, response.access_token, response.refresh_token)
 }
 
 export async function discoverOidcAuth(
@@ -136,9 +139,14 @@ export async function oidcLogin(
   metadata: ValidatedAuthMetadata,
   redirectUri: string,
 ): Promise<string> {
+  // ponytail: client_uri MUST be https per OAuth2 spec; http breaks strict IdPs
+  const clientUri = location.origin.startsWith('https')
+    ? location.origin
+    : location.href.replace(/\/[^/]*$/, '')
+
   const clientId = await OAuth2.registerClient(metadata, {
     client_name: 'Matrix PWA',
-    client_uri: location.origin,
+    client_uri: clientUri,
     redirect_uris: [redirectUri],
   })
 
@@ -148,7 +156,7 @@ export async function oidcLogin(
     redirectUri,
   })
 
-  const authUrl = await oauth2.generateAuthorizationCodeGrantUrl(state, 'query')
+  const authUrl = await oauth2.generateAuthorizationCodeGrantUrl(state)
 
   sessionStorage.setItem(
     OIDC_CONTEXT_KEY,
@@ -198,18 +206,11 @@ export async function exchangeOidcCode(
   })
   const whoami = await client.whoami()
 
-  await accountManager.addAccount({
-    userId: whoami.user_id,
-    homeserver: ctx.metadata.issuer,
-    deviceId: whoami.device_id ?? 'OIDC_DEVICE',
-    isPrimary: true,
-    refreshToken: tokens.refresh_token,
-  })
-  accountManager.setAccessToken(whoami.user_id, tokens.access_token)
-
-  return {
-    userId: whoami.user_id,
-    deviceId: whoami.device_id ?? 'OIDC_DEVICE',
-    homeserver: ctx.metadata.issuer,
-  }
+  return persistLoginResponse(
+    whoami.user_id,
+    whoami.device_id ?? 'OIDC_DEVICE',
+    ctx.metadata.issuer,
+    tokens.access_token,
+    tokens.refresh_token,
+  )
 }
