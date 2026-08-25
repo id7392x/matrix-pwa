@@ -1,6 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { login, discoverSsoProviders, ssoLogin, type SsoProvider } from '$lib/authService'
+  import {
+    login,
+    discoverSsoProviders,
+    ssoLogin,
+    discoverOidcAuth,
+    oidcLogin,
+    type SsoProvider,
+  } from '$lib/authService'
+  import type { ValidatedAuthMetadata } from 'matrix-js-sdk/lib/oauth'
   import { authStore } from '$stores/authStore.svelte'
   import { uiStore } from '$stores/uiStore.svelte'
 
@@ -9,9 +17,15 @@
   let password = $state('')
   let error = $state<string | null>(null)
   let ssoProviders = $state<SsoProvider[]>([])
+  let oidcMetadata = $state<ValidatedAuthMetadata | null>(null)
 
   onMount(async () => {
-    ssoProviders = await discoverSsoProviders(homeserver)
+    const [providers, oidc] = await Promise.all([
+      discoverSsoProviders(homeserver),
+      discoverOidcAuth(homeserver),
+    ])
+    ssoProviders = providers
+    oidcMetadata = oidc
   })
 
   async function handleSubmit(): Promise<void> {
@@ -36,6 +50,18 @@
     const redirectUrl = location.origin + location.pathname
     const url = ssoLogin(homeserver, idpId, redirectUrl)
     window.location.href = url
+  }
+
+  async function handleOidc(): Promise<void> {
+    if (!oidcMetadata) return
+    error = null
+    try {
+      const redirectUrl = location.origin + location.pathname
+      const url = await oidcLogin(homeserver, oidcMetadata, redirectUrl)
+      window.location.href = url
+    } catch (oidcError) {
+      error = oidcError instanceof Error ? oidcError.message : 'OIDC login failed'
+    }
   }
 </script>
 
@@ -89,7 +115,7 @@
     </button>
   </form>
 
-  {#if ssoProviders.length > 0}
+  {#if oidcMetadata || ssoProviders.length > 0}
     <div class="flex items-center gap-3">
       <hr class="flex-1 border-[var(--glass-border)]" />
       <span class="text-xs text-[var(--text-primary)]/50">or</span>
@@ -97,6 +123,16 @@
     </div>
 
     <div class="flex flex-col gap-2">
+      {#if oidcMetadata}
+        <button
+          type="button"
+          onclick={() => void handleOidc()}
+          class="flex items-center justify-center gap-2 rounded-lg border border-[var(--glass-border)] bg-white/5 px-4 py-2 text-sm text-[var(--text-primary)] hover:bg-white/10"
+        >
+          Sign in with SSO
+        </button>
+      {/if}
+
       {#each ssoProviders as provider (provider.id)}
         <button
           type="button"

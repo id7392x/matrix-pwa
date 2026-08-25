@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from 'svelte'
 
 import LoginScreen from '$components/LoginScreen.svelte'
-import { login, discoverSsoProviders, ssoLogin } from '$lib/authService'
+import { login, discoverSsoProviders, ssoLogin, discoverOidcAuth, oidcLogin } from '$lib/authService'
 import { authStore } from '$stores/authStore.svelte'
 import { uiStore } from '$stores/uiStore.svelte'
 
@@ -12,6 +12,8 @@ vi.mock('$lib/authService', () => ({
   login: vi.fn(),
   discoverSsoProviders: vi.fn(() => Promise.resolve([])),
   ssoLogin: vi.fn(),
+  discoverOidcAuth: vi.fn(() => Promise.resolve(null)),
+  oidcLogin: vi.fn(),
 }))
 
 describe('LoginScreen', () => {
@@ -22,6 +24,7 @@ describe('LoginScreen', () => {
     location.hash = ''
     vi.restoreAllMocks()
     vi.mocked(discoverSsoProviders).mockResolvedValue([])
+    vi.mocked(discoverOidcAuth).mockResolvedValue(null)
   })
 
   it('offers a password field and hides device/access token fields', async () => {
@@ -121,5 +124,64 @@ describe('LoginScreen', () => {
 
     expect(sessionStorage.getItem('sso_homeserver')).toBe('matrix.org')
     expect(ssoLogin).toHaveBeenCalledWith('matrix.org', 'apple', expect.any(String))
+  })
+
+  it('displays OIDC button when OIDC metadata is discovered', async () => {
+    vi.mocked(discoverOidcAuth).mockResolvedValue({
+      issuer: 'https://matrix.org',
+      authorization_endpoint: 'https://matrix.org/auth',
+      token_endpoint: 'https://matrix.org/token',
+      registration_endpoint: 'https://matrix.org/register',
+      code_challenge_methods_supported: ['S256'],
+      grant_types_supported: ['authorization_code', 'refresh_token'],
+      response_types_supported: ['code'],
+      response_modes_supported: ['query', 'fragment'],
+      revocation_endpoint: 'https://matrix.org/revoke',
+    })
+    const target = document.createElement('div')
+    mount(LoginScreen, { target })
+
+    await vi.waitFor(() => {
+      expect(target.textContent).toContain('Sign in with SSO')
+    })
+  })
+
+  it('hides OIDC button when no OIDC metadata is discovered', async () => {
+    vi.mocked(discoverOidcAuth).mockResolvedValue(null)
+    const target = document.createElement('div')
+    mount(LoginScreen, { target })
+
+    await vi.waitFor(() => {
+      expect(target.textContent).not.toContain('Sign in with SSO')
+    })
+  })
+
+  it('clicking OIDC button calls oidcLogin and redirects', async () => {
+    const metadata = {
+      issuer: 'https://matrix.org',
+      authorization_endpoint: 'https://matrix.org/auth',
+      token_endpoint: 'https://matrix.org/token',
+      registration_endpoint: 'https://matrix.org/register',
+      code_challenge_methods_supported: ['S256'],
+      grant_types_supported: ['authorization_code', 'refresh_token'],
+      response_types_supported: ['code'],
+      response_modes_supported: ['query', 'fragment'],
+      revocation_endpoint: 'https://matrix.org/revoke',
+    }
+    vi.mocked(discoverOidcAuth).mockResolvedValue(metadata)
+    vi.mocked(oidcLogin).mockResolvedValue('https://matrix.org/auth?code=abc')
+    const target = document.createElement('div')
+    mount(LoginScreen, { target })
+
+    await vi.waitFor(() => {
+      expect(target.querySelector('button[type="button"]')).not.toBeNull()
+    })
+
+    const oidcButton = target.querySelector('button[type="button"]')!
+    oidcButton.dispatchEvent(new Event('click', { bubbles: true }))
+
+    await vi.waitFor(() => {
+      expect(oidcLogin).toHaveBeenCalledWith('matrix.org', metadata, expect.any(String))
+    })
   })
 })

@@ -3,7 +3,7 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { accountManager } from '$lib/accountManager'
-import { exchangeSsoLoginToken } from '$lib/authService'
+import { exchangeSsoLoginToken, exchangeOidcCode } from '$lib/authService'
 import { startLegacySync, stopLegacySync } from '$lib/legacySync'
 import { db } from '$storage/db'
 import { authStore } from '$stores/authStore.svelte'
@@ -16,6 +16,7 @@ vi.mock('$lib/legacySync', () => ({
 vi.mock('$lib/authService', () => ({
   login: vi.fn(),
   exchangeSsoLoginToken: vi.fn(),
+  exchangeOidcCode: vi.fn(),
 }))
 
 describe('authStore', () => {
@@ -26,6 +27,7 @@ describe('authStore', () => {
     vi.mocked(startLegacySync).mockClear()
     vi.mocked(stopLegacySync).mockClear()
     vi.mocked(exchangeSsoLoginToken).mockClear()
+    vi.mocked(exchangeOidcCode).mockClear()
   })
 
   it('starts signed out', () => {
@@ -184,5 +186,34 @@ describe('authStore', () => {
 
     expect(handled).toBe(false)
     expect(exchangeSsoLoginToken).not.toHaveBeenCalled()
+  })
+
+  it('handleSsoCallback exchanges OIDC code and signs in', async () => {
+    vi.mocked(exchangeOidcCode).mockResolvedValue({
+      userId: '@alice:example.org',
+      deviceId: 'OIDCDEV',
+      homeserver: 'https://matrix.org',
+    })
+    accountManager.setAccessToken('@alice:example.org', 'oidc-access')
+    history.replaceState({}, '', '?code=auth-code-xyz&state=abc-123')
+
+    const handled = await authStore.handleSsoCallback()
+
+    expect(handled).toBe(true)
+    expect(exchangeOidcCode).toHaveBeenCalledWith('auth-code-xyz', 'abc-123')
+    expect(authStore.isAuthenticated).toBe(true)
+    expect(authStore.userId).toBe('@alice:example.org')
+    expect(location.search).toBe('')
+  })
+
+  it('handleSsoCallback returns false when OIDC exchange fails', async () => {
+    vi.mocked(exchangeOidcCode).mockRejectedValue(new Error('State mismatch'))
+    history.replaceState({}, '', '?code=bad-code&state=bad-state')
+
+    const handled = await authStore.handleSsoCallback()
+
+    expect(handled).toBe(false)
+    expect(authStore.isAuthenticated).toBe(false)
+    expect(location.search).toBe('')
   })
 })

@@ -1,5 +1,5 @@
 import { accountManager } from '$lib/accountManager'
-import { exchangeSsoLoginToken } from '$lib/authService'
+import { exchangeSsoLoginToken, exchangeOidcCode } from '$lib/authService'
 import { startLegacySync, stopLegacySync } from '$lib/legacySync'
 import { batchedStore } from '$stores/batchedStore.svelte'
 import { roomStore } from '$stores/roomStore.svelte'
@@ -23,6 +23,13 @@ class AuthStore {
 
   async handleSsoCallback(): Promise<boolean> {
     const params = new URLSearchParams(location.search)
+
+    const code = params.get('code')
+    const state = params.get('state')
+    if (code && state) {
+      return this.handleOidcCallback(code, state)
+    }
+
     const loginToken = params.get('loginToken')
     if (!loginToken) return false
     const homeserver = sessionStorage.getItem('sso_homeserver') ?? 'matrix.org'
@@ -30,17 +37,32 @@ class AuthStore {
     history.replaceState({}, '', location.pathname)
     try {
       const result = await exchangeSsoLoginToken(homeserver, loginToken)
-      this.signIn(result.userId, result.deviceId, result.homeserver, accountManager.getAccessToken(result.userId) ?? '')
-      void startLegacySync(result.userId, () => {
-        void this.signOut()
-      }).catch(() => {
-        void this.signOut()
-      })
-      return true
+      return this.completeLogin(result.userId, result.deviceId, result.homeserver)
     } catch (error) {
       console.error('SSO token exchange failed', error)
       return false
     }
+  }
+
+  private async handleOidcCallback(code: string, state: string): Promise<boolean> {
+    history.replaceState({}, '', location.pathname)
+    try {
+      const result = await exchangeOidcCode(code, state)
+      return this.completeLogin(result.userId, result.deviceId, result.homeserver)
+    } catch (error) {
+      console.error('OIDC code exchange failed', error)
+      return false
+    }
+  }
+
+  private completeLogin(userId: string, deviceId: string, homeserver: string): boolean {
+    this.signIn(userId, deviceId, homeserver, accountManager.getAccessToken(userId) ?? '')
+    void startLegacySync(userId, () => {
+      void this.signOut()
+    }).catch(() => {
+      void this.signOut()
+    })
+    return true
   }
 
   async restoreSession(): Promise<boolean> {

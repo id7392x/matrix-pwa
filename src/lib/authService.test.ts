@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientPrefix, Method, SSOAction, createClient } from 'matrix-js-sdk'
+import { OAuth2 } from 'matrix-js-sdk/lib/oauth'
 
 import { db } from '$storage/db'
 import { accountManager } from '$lib/accountManager'
@@ -12,6 +13,9 @@ import {
   discoverSsoProviders,
   ssoLogin,
   exchangeSsoLoginToken,
+  discoverOidcAuth,
+  oidcLogin,
+  exchangeOidcCode,
 } from '$lib/authService'
 
 vi.mock('matrix-js-sdk', async (importOriginal) => {
@@ -21,6 +25,15 @@ vi.mock('matrix-js-sdk', async (importOriginal) => {
     createClient: vi.fn((opts: Parameters<typeof actual.createClient>[0]) =>
       actual.createClient(opts),
     ),
+  }
+})
+
+vi.mock('matrix-js-sdk/lib/oauth', () => {
+  const mockOAuth2 = vi.fn()
+  return {
+    OAuth2: Object.assign(mockOAuth2, {
+      registerClient: vi.fn(),
+    }),
   }
 })
 
@@ -281,5 +294,150 @@ describe('authService.exchangeSsoLoginToken', () => {
     const account = await db.accounts.get(alice)
     expect(account).not.toHaveProperty('loginToken')
     expect(JSON.stringify(account)).not.toContain('my-login-token')
+  })
+})
+
+const oidcMetadata = {
+  issuer: 'https://matrix.org',
+  authorization_endpoint: 'https://matrix.org/auth',
+  token_endpoint: 'https://matrix.org/token',
+  registration_endpoint: 'https://matrix.org/register',
+  code_challenge_methods_supported: ['S256'],
+  grant_types_supported: ['authorization_code', 'refresh_token'],
+  response_types_supported: ['code'],
+  response_modes_supported: ['query', 'fragment'],
+  revocation_endpoint: 'https://matrix.org/revoke',
+}
+
+describe('authService.discoverOidcAuth', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    vi.mocked(createClient).mockClear()
+  })
+
+  it('returns auth metadata when getAuthMetadata succeeds', async () => {
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    vi.mocked(createClient).mockReturnValue(client)
+    vi.spyOn(client, 'getAuthMetadata').mockResolvedValue(oidcMetadata)
+
+    const result = await discoverOidcAuth('matrix.org')
+
+    expect(client.getAuthMetadata).toHaveBeenCalled()
+    expect(result).toEqual(oidcMetadata)
+  })
+
+  it('returns null when getAuthMetadata throws', async () => {
+    const client = createClient({ baseUrl: 'https://down.example.org' })
+    vi.mocked(createClient).mockReturnValue(client)
+    vi.spyOn(client, 'getAuthMetadata').mockRejectedValue(new Error('fetch failed'))
+
+    const result = await discoverOidcAuth('down.example.org')
+
+    expect(result).toBeNull()
+  })
+
+  it('returns null when metadata validation fails', async () => {
+    const client = createClient({ baseUrl: 'https://example.org' })
+    vi.mocked(createClient).mockReturnValue(client)
+    vi.spyOn(client, 'getAuthMetadata').mockRejectedValue(
+      new Error('Issuer configuration not valid'),
+    )
+
+    const result = await discoverOidcAuth('example.org')
+
+    expect(result).toBeNull()
+  })
+})
+
+describe('authService.oidcLogin', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    sessionStorage.clear()
+    vi.mocked(OAuth2).mockClear()
+    vi.mocked(OAuth2.registerClient).mockClear()
+  })
+
+  it('registers client, generates auth URL, and stores context in sessionStorage', async () => {
+    vi.mocked(OAuth2.registerClient).mockResolvedValue('oidc-client-id')
+    vi.mocked(OAuth2).mockImplementation(function () {
+      return {
+        context: { clientId: 'oidc-client-id', codeVerifier: 'test-verifier' },
+        generateAuthorizationCodeGrantUrl: vi.fn().mockResolvedValue('https://matrix.org/auth?code=abc'),
+      } as unknown as InstanceType<typeof OAuth2>
+    })
+
+    const result = await oidcLogin('https://matrix.org', oidcMetadata, 'http://localhost:5173/')
+
+    expect(OAuth2.registerClient).toHaveBeenCalledWith(oidcMetadata, expect.objectContaining({
+      client_name: 'Matrix PWA',
+      redirect_uris: ['http://localhost:5173/'],
+    }))
+    expect(result).toBe('https://matrix.org/auth?code=abc')
+
+    const stored = JSON.parse(sessionStorage.getItem('mx_oidc_context')!)
+    expect(stored.clientId).toBe('oidc-client-id')
+    expect(stored.metadata).toEqual(oidcMetadata)
+    expect(stored.redirectUri).toBe('http://localhost:5173/')
+    expect(stored.state).toBeDefined()
+    expect(stored.codeVerifier).toBe('test-verifier')
+  })
+})
+
+describe('authService.exchangeOidcCode', () => {
+  beforeEach(async () => {
+    await db.accounts.clear()
+    sessionStorage.clear()
+    vi.restoreAllMocks()
+    vi.mocked(OAuth2).mockClear()
+    vi.mocked(OAuth2.registerClient).mockClear()
+  })
+
+  it('exchanges code for tokens and persists account', async () => {
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    vi.mocked(createClient).mockReturnValue(client)
+    vi.spyOn(client, 'whoami').mockResolvedValue({
+      user_id: alice,
+      device_id: 'OIDCDEV',
+    })
+
+    vi.mocked(OAuth2).mockImplementation(function () {
+      return {
+        completeAuthorizationCodeGrant: vi.fn().mockResolvedValue({
+          access_token: 'oidc-access',
+          refresh_token: 'oidc-refresh',
+          token_type: 'Bearer',
+        }),
+      } as unknown as InstanceType<typeof OAuth2>
+    })
+
+    sessionStorage.setItem(
+      'mx_oidc_context',
+      JSON.stringify({
+        state: 'test-state',
+        clientId: 'oidc-client-id',
+        codeVerifier: 'test-verifier',
+        metadata: oidcMetadata,
+        redirectUri: 'http://localhost:5173/',
+      }),
+    )
+
+    const result = await exchangeOidcCode('auth-code', 'test-state')
+
+    expect(result.userId).toBe(alice)
+    expect(accountManager.getAccessToken(alice)).toBe('oidc-access')
+    expect((await db.accounts.get(alice))?.refreshToken).toBe('oidc-refresh')
+  })
+
+  it('throws when state does not match stored state', async () => {
+    sessionStorage.setItem(
+      'mx_oidc_context',
+      JSON.stringify({ state: 'correct-state', clientId: 'x', codeVerifier: 'v', metadata: oidcMetadata, redirectUri: 'http://localhost:5173/' }),
+    )
+
+    await expect(exchangeOidcCode('auth-code', 'wrong-state')).rejects.toThrow('State mismatch')
+  })
+
+  it('throws when no OIDC context in sessionStorage', async () => {
+    await expect(exchangeOidcCode('auth-code', 'test-state')).rejects.toThrow('No OIDC context')
   })
 })
