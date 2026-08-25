@@ -4,11 +4,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from 'svelte'
 
 import LoginScreen from '$components/LoginScreen.svelte'
-import { login } from '$lib/authService'
+import { login, discoverSsoProviders, ssoLogin } from '$lib/authService'
 import { authStore } from '$stores/authStore.svelte'
 import { uiStore } from '$stores/uiStore.svelte'
 
-vi.mock('$lib/authService', () => ({ login: vi.fn() }))
+vi.mock('$lib/authService', () => ({
+  login: vi.fn(),
+  discoverSsoProviders: vi.fn(() => Promise.resolve([])),
+  ssoLogin: vi.fn(),
+}))
 
 describe('LoginScreen', () => {
   beforeEach(() => {
@@ -17,6 +21,7 @@ describe('LoginScreen', () => {
     sessionStorage.clear()
     location.hash = ''
     vi.restoreAllMocks()
+    vi.mocked(discoverSsoProviders).mockResolvedValue([])
   })
 
   it('offers a password field and hides device/access token fields', async () => {
@@ -73,5 +78,48 @@ describe('LoginScreen', () => {
       expect(target.textContent).toContain('Invalid credentials')
     })
     expect(uiStore.screen).toEqual({ name: 'login' })
+  })
+
+  it('displays SSO provider buttons when providers are discovered', async () => {
+    vi.mocked(discoverSsoProviders).mockResolvedValue([
+      { id: 'apple', name: 'Apple' },
+      { id: 'google', name: 'Google' },
+    ])
+    const target = document.createElement('div')
+    mount(LoginScreen, { target })
+
+    await vi.waitFor(() => {
+      expect(target.textContent).toContain('Sign in with Apple')
+      expect(target.textContent).toContain('Sign in with Google')
+    })
+  })
+
+  it('hides SSO section when no providers are discovered', async () => {
+    vi.mocked(discoverSsoProviders).mockResolvedValue([])
+    const target = document.createElement('div')
+    mount(LoginScreen, { target })
+
+    await vi.waitFor(() => {
+      expect(target.textContent).not.toContain('Sign in with')
+    })
+  })
+
+  it('clicking SSO button stores homeserver in sessionStorage and redirects', async () => {
+    vi.mocked(discoverSsoProviders).mockResolvedValue([
+      { id: 'apple', name: 'Apple' },
+    ])
+    vi.mocked(ssoLogin).mockReturnValue('https://matrix.org/sso/redirect/apple')
+    const target = document.createElement('div')
+    mount(LoginScreen, { target })
+
+    await vi.waitFor(() => {
+      expect(target.querySelector('button[type="button"]')).not.toBeNull()
+    })
+
+    const ssoButton = target.querySelector('button[type="button"]')!
+    ssoButton.dispatchEvent(new Event('click', { bubbles: true }))
+
+    expect(sessionStorage.getItem('sso_homeserver')).toBe('matrix.org')
+    expect(ssoLogin).toHaveBeenCalledWith('matrix.org', 'apple', expect.any(String))
   })
 })

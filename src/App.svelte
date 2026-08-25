@@ -6,11 +6,17 @@
   import { uiStore } from '$stores/uiStore.svelte'
 
   uiStore.init()
-  void authStore.restoreSession().then((resolved) => {
-    if (resolved && uiStore.screen.name === 'login') uiStore.openRooms()
-  }).catch((err) => {
-    console.error('session restore failed', err)
-  })
+
+  void (async () => {
+    try {
+      const ssoHandled = await authStore.handleSsoCallback()
+      if (ssoHandled) { uiStore.openRooms(); return }
+      const restored = await authStore.restoreSession()
+      if (restored && uiStore.screen.name === 'login') uiStore.openRooms()
+    } catch (err) {
+      console.error('auth init failed', err)
+    }
+  })()
 
   const screen = $derived(uiStore.screen)
 </script>

@@ -1,11 +1,18 @@
 import 'fake-indexeddb/auto'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ClientPrefix, Method, createClient } from 'matrix-js-sdk'
+import { ClientPrefix, Method, SSOAction, createClient } from 'matrix-js-sdk'
 
 import { db } from '$storage/db'
 import { accountManager } from '$lib/accountManager'
-import { login, makeTokenRefreshFunction, normalizeHomeserver } from '$lib/authService'
+import {
+  login,
+  makeTokenRefreshFunction,
+  normalizeHomeserver,
+  discoverSsoProviders,
+  ssoLogin,
+  exchangeSsoLoginToken,
+} from '$lib/authService'
 
 vi.mock('matrix-js-sdk', async (importOriginal) => {
   const actual = await importOriginal<typeof import('matrix-js-sdk')>()
@@ -149,5 +156,130 @@ describe('authService.makeTokenRefreshFunction', () => {
 
     expect(refreshTokenSpy).not.toHaveBeenCalled()
     expect(result.accessToken).toBe('fresh-access')
+  })
+})
+
+describe('authService.discoverSsoProviders', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    vi.mocked(createClient).mockClear()
+  })
+
+  it('returns identity providers when m.login.sso flow exists', async () => {
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    vi.mocked(createClient).mockReturnValue(client)
+    vi.spyOn(client, 'loginFlows').mockResolvedValue({
+      flows: [
+        {
+          type: 'm.login.sso',
+          identity_providers: [
+            { id: 'apple', name: 'Apple', brand: 'apple' },
+            { id: 'google', name: 'Google', brand: 'google' },
+          ],
+        },
+      ],
+    })
+
+    const providers = await discoverSsoProviders('matrix.org')
+
+    expect(providers).toHaveLength(2)
+    expect(providers[0]).toEqual({ id: 'apple', name: 'Apple', brand: 'apple' })
+  })
+
+  it('returns empty array when no SSO flow is available', async () => {
+    const client = createClient({ baseUrl: 'https://example.org' })
+    vi.mocked(createClient).mockReturnValue(client)
+    vi.spyOn(client, 'loginFlows').mockResolvedValue({
+      flows: [{ type: 'm.login.password' }],
+    })
+
+    const providers = await discoverSsoProviders('example.org')
+
+    expect(providers).toHaveLength(0)
+  })
+
+  it('returns empty array on network error', async () => {
+    const client = createClient({ baseUrl: 'https://down.example.org' })
+    vi.mocked(createClient).mockReturnValue(client)
+    vi.spyOn(client, 'loginFlows').mockRejectedValue(new Error('fetch failed'))
+
+    const providers = await discoverSsoProviders('down.example.org')
+
+    expect(providers).toHaveLength(0)
+  })
+})
+
+describe('authService.ssoLogin', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    vi.mocked(createClient).mockClear()
+  })
+
+  it('generates SSO URL via getSsoLoginUrl with correct params', () => {
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    vi.mocked(createClient).mockReturnValue(client)
+    vi.spyOn(client, 'getSsoLoginUrl').mockReturnValue(
+      'https://matrix.org/_matrix/client/v3/login/sso/redirect/apple?redirectUrl=http%3A%2F%2Flocalhost%3A5173%2F',
+    )
+
+    const url = ssoLogin('matrix.org', 'apple', 'http://localhost:5173/')
+
+    expect(client.getSsoLoginUrl).toHaveBeenCalledWith(
+      'http://localhost:5173/',
+      'sso',
+      'apple',
+      SSOAction.LOGIN,
+    )
+    expect(url).toContain('login/sso/redirect/apple')
+  })
+})
+
+describe('authService.exchangeSsoLoginToken', () => {
+  beforeEach(async () => {
+    await db.accounts.clear()
+    sessionStorage.clear()
+    vi.restoreAllMocks()
+    vi.mocked(createClient).mockClear()
+  })
+
+  it('exchanges loginToken and persists account with refresh token', async () => {
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    vi.mocked(createClient).mockReturnValue(client)
+    vi.spyOn(client, 'loginRequest').mockResolvedValue({
+      access_token: 'sso-access',
+      device_id: 'SSODEV',
+      user_id: alice,
+      refresh_token: 'sso-refresh',
+    })
+
+    const result = await exchangeSsoLoginToken('matrix.org', 'my-login-token')
+
+    expect(client.loginRequest).toHaveBeenCalledWith({
+      type: 'm.login.token',
+      token: 'my-login-token',
+      refresh_token: true,
+    })
+    expect(result.userId).toBe(alice)
+    expect(result.deviceId).toBe('SSODEV')
+    expect(result.homeserver).toBe('https://matrix.org')
+    expect(accountManager.getAccessToken(alice)).toBe('sso-access')
+    expect((await db.accounts.get(alice))?.refreshToken).toBe('sso-refresh')
+  })
+
+  it('never persists the loginToken', async () => {
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    vi.mocked(createClient).mockReturnValue(client)
+    vi.spyOn(client, 'loginRequest').mockResolvedValue({
+      access_token: 'sso-access',
+      device_id: 'SSODEV',
+      user_id: alice,
+      refresh_token: 'sso-refresh',
+    })
+
+    await exchangeSsoLoginToken('matrix.org', 'my-login-token')
+
+    const account = await db.accounts.get(alice)
+    expect(account).not.toHaveProperty('loginToken')
+    expect(JSON.stringify(account)).not.toContain('my-login-token')
   })
 })

@@ -1,4 +1,5 @@
 import { accountManager } from '$lib/accountManager'
+import { exchangeSsoLoginToken } from '$lib/authService'
 import { startLegacySync, stopLegacySync } from '$lib/legacySync'
 import { batchedStore } from '$stores/batchedStore.svelte'
 import { roomStore } from '$stores/roomStore.svelte'
@@ -18,6 +19,28 @@ class AuthStore {
     this.deviceId = deviceId
     this.homeServer = homeServer
     this.accessToken = accessToken
+  }
+
+  async handleSsoCallback(): Promise<boolean> {
+    const params = new URLSearchParams(location.search)
+    const loginToken = params.get('loginToken')
+    if (!loginToken) return false
+    const homeserver = sessionStorage.getItem('sso_homeserver') ?? 'matrix.org'
+    sessionStorage.removeItem('sso_homeserver')
+    history.replaceState({}, '', location.pathname)
+    try {
+      const result = await exchangeSsoLoginToken(homeserver, loginToken)
+      this.signIn(result.userId, result.deviceId, result.homeserver, accountManager.getAccessToken(result.userId) ?? '')
+      void startLegacySync(result.userId, () => {
+        void this.signOut()
+      }).catch(() => {
+        void this.signOut()
+      })
+      return true
+    } catch (error) {
+      console.error('SSO token exchange failed', error)
+      return false
+    }
   }
 
   async restoreSession(): Promise<boolean> {

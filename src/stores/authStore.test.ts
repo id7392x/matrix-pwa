@@ -3,6 +3,7 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { accountManager } from '$lib/accountManager'
+import { exchangeSsoLoginToken } from '$lib/authService'
 import { startLegacySync, stopLegacySync } from '$lib/legacySync'
 import { db } from '$storage/db'
 import { authStore } from '$stores/authStore.svelte'
@@ -12,6 +13,11 @@ vi.mock('$lib/legacySync', () => ({
   stopLegacySync: vi.fn(),
 }))
 
+vi.mock('$lib/authService', () => ({
+  login: vi.fn(),
+  exchangeSsoLoginToken: vi.fn(),
+}))
+
 describe('authStore', () => {
   beforeEach(async () => {
     sessionStorage.clear()
@@ -19,6 +25,7 @@ describe('authStore', () => {
     authStore.reset()
     vi.mocked(startLegacySync).mockClear()
     vi.mocked(stopLegacySync).mockClear()
+    vi.mocked(exchangeSsoLoginToken).mockClear()
   })
 
   it('starts signed out', () => {
@@ -148,5 +155,34 @@ describe('authStore', () => {
 
     expect(authStore.isAuthenticated).toBe(false)
     expect(authStore.userId).toBeNull()
+  })
+
+  it('handleSsoCallback exchanges loginToken and signs in', async () => {
+    vi.mocked(exchangeSsoLoginToken).mockResolvedValue({
+      userId: '@alice:example.org',
+      deviceId: 'SSODEV',
+      homeserver: 'https://matrix.org',
+    })
+    accountManager.setAccessToken('@alice:example.org', 'sso-access')
+    sessionStorage.setItem('sso_homeserver', 'matrix.org')
+    history.replaceState({}, '', '?loginToken=my-token')
+
+    const handled = await authStore.handleSsoCallback()
+
+    expect(handled).toBe(true)
+    expect(exchangeSsoLoginToken).toHaveBeenCalledWith('matrix.org', 'my-token')
+    expect(authStore.isAuthenticated).toBe(true)
+    expect(authStore.userId).toBe('@alice:example.org')
+    expect(location.search).toBe('')
+    expect(sessionStorage.getItem('sso_homeserver')).toBeNull()
+  })
+
+  it('handleSsoCallback returns false when no loginToken in URL', async () => {
+    history.replaceState({}, '', '/')
+
+    const handled = await authStore.handleSsoCallback()
+
+    expect(handled).toBe(false)
+    expect(exchangeSsoLoginToken).not.toHaveBeenCalled()
   })
 })

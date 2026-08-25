@@ -1,4 +1,4 @@
-import { ClientPrefix, Method, createClient, type MatrixClient } from 'matrix-js-sdk'
+import { ClientPrefix, Method, SSOAction, createClient, type MatrixClient } from 'matrix-js-sdk'
 import type {
   AccessTokens,
   IRefreshTokenResponse,
@@ -7,10 +7,30 @@ import type {
 
 import { accountManager } from '$lib/accountManager'
 
+export interface SsoProvider {
+  id: string
+  name: string
+  brand?: string
+}
+
 export function normalizeHomeserver(homeserver: string): string {
-  // SEC-4: a trailing slash or whitespace must not produce a double-slash baseUrl
   const cleaned = homeserver.trim().replace(/\/+$/, '')
   return cleaned.includes('://') ? cleaned : `https://${cleaned}`
+}
+
+async function persistLoginResponse(
+  response: { user_id: string; device_id: string; access_token: string; refresh_token?: string },
+  baseUrl: string,
+): Promise<{ userId: string; deviceId: string; homeserver: string }> {
+  await accountManager.addAccount({
+    userId: response.user_id,
+    homeserver: baseUrl,
+    deviceId: response.device_id,
+    isPrimary: true,
+    refreshToken: response.refresh_token,
+  })
+  accountManager.setAccessToken(response.user_id, response.access_token)
+  return { userId: response.user_id, deviceId: response.device_id, homeserver: baseUrl }
 }
 
 export async function login(
@@ -26,15 +46,7 @@ export async function login(
     password,
     refresh_token: true,
   })
-  await accountManager.addAccount({
-    userId: response.user_id,
-    homeserver: baseUrl,
-    deviceId: response.device_id,
-    isPrimary: true,
-    refreshToken: response.refresh_token,
-  })
-  accountManager.setAccessToken(response.user_id, response.access_token)
-  return { userId: response.user_id, deviceId: response.device_id, homeserver: baseUrl }
+  return persistLoginResponse(response, baseUrl)
 }
 
 // ponytail: unauthenticated /refresh bypasses the SDK TokenRefresher, which
@@ -53,7 +65,6 @@ export function makeTokenRefreshFunction(
   getClient: () => MatrixClient,
 ): TokenRefreshFunction {
   return async (refreshToken: string): Promise<AccessTokens> => {
-    // SDK-5: anchor expiry to the request start, matching the SDK's own refresher
     const startedAt = Date.now()
     const response = await refreshAccessTokens(getClient(), refreshToken)
     await accountManager.setTokens(userId, {
@@ -66,4 +77,41 @@ export function makeTokenRefreshFunction(
       expiry: new Date(startedAt + response.expires_in_ms),
     }
   }
+}
+
+export async function discoverSsoProviders(homeserver: string): Promise<SsoProvider[]> {
+  const baseUrl = normalizeHomeserver(homeserver)
+  const client = createClient({ baseUrl })
+  try {
+    const response = await client.loginFlows()
+    const ssoFlow = response.flows.find((f) => f.type === 'm.login.sso')
+    if (!ssoFlow || !('identity_providers' in ssoFlow)) return []
+    return (ssoFlow.identity_providers ?? []).map((idp) => ({
+      id: idp.id,
+      name: idp.name,
+      brand: idp.brand,
+    }))
+  } catch {
+    return []
+  }
+}
+
+export function ssoLogin(homeserver: string, idpId: string, redirectUrl: string): string {
+  const baseUrl = normalizeHomeserver(homeserver)
+  const client = createClient({ baseUrl })
+  return client.getSsoLoginUrl(redirectUrl, 'sso', idpId, SSOAction.LOGIN)
+}
+
+export async function exchangeSsoLoginToken(
+  homeserver: string,
+  loginToken: string,
+): Promise<{ userId: string; deviceId: string; homeserver: string }> {
+  const baseUrl = normalizeHomeserver(homeserver)
+  const client = createClient({ baseUrl })
+  const response = await client.loginRequest({
+    type: 'm.login.token',
+    token: loginToken,
+    refresh_token: true,
+  })
+  return persistLoginResponse(response, baseUrl)
 }
