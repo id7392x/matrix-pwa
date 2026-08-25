@@ -139,14 +139,14 @@ export async function oidcLogin(
   metadata: ValidatedAuthMetadata,
   redirectUri: string,
 ): Promise<string> {
-  // ponytail: client_uri MUST be https per OAuth2 spec; http breaks strict IdPs
-  const clientUri = location.origin.startsWith('https')
-    ? location.origin
-    : location.href.replace(/\/[^/]*$/, '')
-
+  const isHttp = !location.origin.startsWith('https')
+  // ponytail: client_uri MUST be https per OAuth2 spec; for http:// origins (dev/LAN),
+  // use the issuer URL as client_uri and register as "native" app — native apps are
+  // allowed http:// redirect URIs per RFC 8252 §7.3
   const clientId = await OAuth2.registerClient(metadata, {
+    ...(isHttp ? { application_type: 'native' as const } : {}),
     client_name: 'Matrix PWA',
-    client_uri: clientUri,
+    client_uri: isHttp ? metadata.issuer : location.origin,
     redirect_uris: [redirectUri],
   })
 
