@@ -89,7 +89,7 @@ describe('e2ee', () => {
         content: { ciphertext: 'x' },
       } as never)
       // ponytail: mock returns ciphertext as body — real impl uses matrix-js-sdk crypto
-      expect(decrypted).toEqual({ body: 'Unable to decrypt' })
+      expect(decrypted).toEqual({ content: { body: 'Unable to decrypt' }, type: 'm.room.message' })
     })
   })
 

@@ -428,6 +428,7 @@ describe('SyncOrchestrator', () => {
     expect(event?.isEncrypted).toBe(true)
     expect(store.events[0].isEncrypted).toBe(true)
     expect(store.events[0].body).toBe('')
-    expect(store.events[0].errorText).toBe('Unable to decrypt: keys not found')
+    expect(store.events[0].errorText).toBeUndefined()
+    expect(store.events[0].decryptionError).toBe('Unable to decrypt: keys not found')
   })
 })

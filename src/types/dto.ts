@@ -11,6 +11,7 @@ export interface EventDtoSource {
   txnId?: string
   isEncrypted?: boolean
   errorText?: string
+  decryptionError?: string
 }
 
 export function toEventDto(source: EventDtoSource): EventDto {
@@ -29,6 +30,7 @@ export function toEventDto(source: EventDtoSource): EventDto {
     syncState: source.syncState,
     txnId: source.txnId,
     errorText: source.errorText,
+    decryptionError: source.decryptionError,
   }
 }
 

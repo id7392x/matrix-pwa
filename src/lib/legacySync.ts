@@ -74,13 +74,15 @@ export async function startLegacySync(
       stopLegacySync(userId)
     })
 
-    // Cold Start: init E2EE before starting sync (01-ARCH §4)
+    // Cold Start: init E2EE before starting sync (01-ARCH §4, Principles §3.3.1)
+    // Events must not be processed before crypto is ready.
     let e2ee: E2EEHandle | undefined
     try {
       e2ee = createE2EE(client, batchedStore)
       await e2ee.initCrypto(userId, account.deviceId, client.getAccessToken() ?? '', account.homeserver)
     } catch (error) {
-      console.error('E2EE init failed, continuing without encryption', error)
+      console.error('E2EE init failed, aborting sync (Cold Start invariant)', error)
+      return { stop: noop }
     }
 
     const pendingQueue = new PendingQueueService(undefined, client, batchedStore)

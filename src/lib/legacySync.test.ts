@@ -30,6 +30,7 @@ vi.mock('matrix-js-sdk', async (importOriginal) => {
     createClient: vi.fn((opts: Parameters<typeof actual.createClient>[0]) => {
       const client = actual.createClient(opts)
       vi.spyOn(client, 'startClient').mockResolvedValue(undefined)
+      vi.spyOn(client, 'initRustCrypto').mockResolvedValue(undefined)
       return client
     }),
   }

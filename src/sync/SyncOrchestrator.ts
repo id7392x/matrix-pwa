@@ -77,17 +77,22 @@ export class SyncOrchestrator {
       return
     }
 
+    // If encrypted and not yet decrypted, mark as UTD in DB (survives reload).
+    const encrypted = isEncrypted(raw)
+    const decrypted = encrypted ? this.e2ee?.state.tryDecrypt(raw) : null
+
     const model: EventModel = {
       userId: this.userId,
       roomId,
       eventId: raw.event_id,
       originServerTs: raw.origin_server_ts,
       sender: raw.sender,
-      type: raw.type,
-      content: raw.content,
+      type: decrypted ? decrypted.type : raw.type,
+      content: decrypted ? decrypted.content : raw.content,
       txnId,
       syncState: 'synced',
-      isEncrypted: isEncrypted(raw),
+      isEncrypted: encrypted,
+      decryptionError: encrypted && !decrypted ? UTD_ERROR : undefined,
     }
     await db.events.put(model)
   }
@@ -107,14 +112,14 @@ export class SyncOrchestrator {
     })
   }
 
-  private toDecryptedDto(roomId: string, raw: SyncRawEvent, decrypted: Record<string, unknown>): EventDto {
+  private toDecryptedDto(roomId: string, raw: SyncRawEvent, decrypted: { content: Record<string, unknown>; type: string }): EventDto {
     return toEventDto({
       id: raw.event_id,
       roomId,
       sender: raw.sender,
       originServerTs: raw.origin_server_ts,
-      type: 'm.room.message',
-      content: decrypted,
+      type: decrypted.type,
+      content: decrypted.content,
       syncState: 'synced',
       isEncrypted: true,
     })
@@ -130,7 +135,7 @@ export class SyncOrchestrator {
       content: {},
       syncState: 'synced',
       isEncrypted: true,
-      errorText: UTD_ERROR,
+      decryptionError: UTD_ERROR,
     })
   }
 }

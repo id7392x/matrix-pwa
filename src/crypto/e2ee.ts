@@ -7,7 +7,7 @@ import { toEventDto } from '$types/dto'
 export interface E2EEHandle {
   state: {
     isReady(): boolean
-    tryDecrypt(raw: SyncRawEvent): Record<string, unknown> | null
+    tryDecrypt(raw: SyncRawEvent): { content: Record<string, unknown>; type: string } | null
   }
   initCrypto(userId: string, deviceId: string, _accessToken: string, _homeserver: string): Promise<void>
   /** Awaits the most recent Event.decrypted handler completion. Useful in tests. */
@@ -26,11 +26,11 @@ export function createE2EE(client: MatrixClient, store?: BatchedStoreManager): E
     return ready
   }
 
-  function tryDecrypt(_raw: SyncRawEvent): Record<string, unknown> | null {
+  function tryDecrypt(_raw: SyncRawEvent): { content: Record<string, unknown>; type: string } | null {
     if (!ready) return null
     // ponytail: mock always returns Unable to decrypt; real impl calls
     // client.crypto.decryptEvent and returns the decrypted content.
-    return { body: 'Unable to decrypt' }
+    return { content: { body: 'Unable to decrypt' }, type: 'm.room.message' }
   }
 
   // Re-decryption listener: when keys arrive, the SDK fires Event.decrypted.
