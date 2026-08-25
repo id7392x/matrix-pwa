@@ -1,16 +1,20 @@
 import { db, type EventModel, type RoomModel } from '$storage/db'
 import type { BatchedStoreManager } from '$stores/batchedStore.svelte'
 import { toEventDto, type EventDto } from '$types/dto'
+import type { E2EEHandle } from '$crypto/e2ee'
 import type { SyncJoinedRoom, SyncRawEvent, SyncResponse } from './ISyncProvider'
 import type { PendingQueueService } from './PendingQueueService'
 
 const isEncrypted = (raw: SyncRawEvent): boolean => raw.type === 'm.room.encrypted'
+
+const UTD_ERROR = 'Unable to decrypt: keys not found'
 
 export class SyncOrchestrator {
   constructor(
     private readonly userId: string,
     private readonly pendingQueue: PendingQueueService,
     private readonly store: BatchedStoreManager,
+    private readonly e2ee?: E2EEHandle,
   ) {}
 
   async handleSync(sync: SyncResponse): Promise<void> {
@@ -18,12 +22,17 @@ export class SyncOrchestrator {
     for (const [roomId, room] of Object.entries(sync.rooms.join)) {
       await this.upsertRoom(roomId, room)
       for (const raw of room.timeline?.events ?? []) {
-        // C11: one malformed event must not drop the rest of the batch.
         try {
           await this.upsertEvent(roomId, raw)
-          // S1: state events live in the DB but never render as blank rows.
-          if (raw.type === 'm.room.message' || raw.type === 'm.room.encrypted') {
+          if (raw.type === 'm.room.message') {
             dtos.push(this.toDto(roomId, raw))
+          } else if (raw.type === 'm.room.encrypted') {
+            const decrypted = this.e2ee?.state.tryDecrypt(raw)
+            if (decrypted) {
+              dtos.push(this.toDecryptedDto(roomId, raw, decrypted))
+            } else {
+              dtos.push(this.toUtdDto(roomId, raw))
+            }
           }
         } catch (error) {
           console.error(`sync: failed to persist event ${raw.event_id}`, error)
@@ -95,6 +104,33 @@ export class SyncOrchestrator {
       syncState: txnId ? (this.pendingQueue.isActive(txnId) ? 'sending' : 'synced') : 'synced',
       txnId,
       isEncrypted: isEncrypted(raw),
+    })
+  }
+
+  private toDecryptedDto(roomId: string, raw: SyncRawEvent, decrypted: Record<string, unknown>): EventDto {
+    return toEventDto({
+      id: raw.event_id,
+      roomId,
+      sender: raw.sender,
+      originServerTs: raw.origin_server_ts,
+      type: 'm.room.message',
+      content: decrypted,
+      syncState: 'synced',
+      isEncrypted: true,
+    })
+  }
+
+  private toUtdDto(roomId: string, raw: SyncRawEvent): EventDto {
+    return toEventDto({
+      id: raw.event_id,
+      roomId,
+      sender: raw.sender,
+      originServerTs: raw.origin_server_ts,
+      type: raw.type,
+      content: {},
+      syncState: 'synced',
+      isEncrypted: true,
+      errorText: UTD_ERROR,
     })
   }
 }

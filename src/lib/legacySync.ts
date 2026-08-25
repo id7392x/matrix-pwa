@@ -4,6 +4,7 @@ import { accountManager } from '$lib/accountManager'
 import { makeTokenRefreshFunction, normalizeHomeserver, refreshAccessTokens } from '$lib/authService'
 import { db } from '$storage/db'
 import { batchedStore } from '$stores/batchedStore.svelte'
+import { createE2EE, type E2EEHandle } from '$crypto/e2ee'
 import { LegacySyncProvider } from '$sync/legacySyncProvider'
 import { PendingQueueService, registerQueue, unregisterQueue } from '$sync/PendingQueueService'
 import { SyncOrchestrator } from '$sync/SyncOrchestrator'
@@ -73,13 +74,22 @@ export async function startLegacySync(
       stopLegacySync(userId)
     })
 
+    // Cold Start: init E2EE before starting sync (01-ARCH §4)
+    let e2ee: E2EEHandle | undefined
+    try {
+      e2ee = createE2EE(client, batchedStore)
+      await e2ee.initCrypto(userId, account.deviceId, client.getAccessToken() ?? '', account.homeserver)
+    } catch (error) {
+      console.error('E2EE init failed, continuing without encryption', error)
+    }
+
     const pendingQueue = new PendingQueueService(undefined, client, batchedStore)
     registerQueue(pendingQueue)
     await pendingQueue.restore(userId)
     await gcDeliveredPending(userId, pendingQueue)
     if (cancelled) return { stop: noop }
 
-    const orchestrator = new SyncOrchestrator(userId, pendingQueue, batchedStore)
+    const orchestrator = new SyncOrchestrator(userId, pendingQueue, batchedStore, e2ee)
     const provider = new LegacySyncProvider(client)
     provider.onSync((sync) => orchestrator.handleSync(sync))
     await provider.start()
@@ -92,6 +102,7 @@ export async function startLegacySync(
       if (activeSyncs.get(userId) !== stop) return
       unregisterQueue(pendingQueue)
       provider.stop()
+      e2ee?.destroy()
       activeSyncs.delete(userId)
     }
     activeSyncs.set(userId, stop)
