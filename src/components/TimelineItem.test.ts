@@ -49,7 +49,27 @@ describe('TimelineItem', () => {
 
   it('renders a retry button for a failed event carrying a txnId', () => {
     const el = render(evt({ syncState: 'failed', txnId: 'txn-1' }))
-    expect(el.querySelector('[data-retry]')).not.toBeNull()
+    expect(el.querySelector('[data-retry]')).toBeTruthy()
+  })
+
+  it('shows decryption error status when event has decryptionError', () => {
+    const el = render(evt({ decryptionError: 'Unable to decrypt: keys not found' }))
+    expect(el.querySelector('[data-status]')?.textContent).toContain('Unable to decrypt')
+  })
+
+  it('shows permanent decryption error status when permanent', () => {
+    const el = render(evt({ decryptionError: 'Unable to decrypt: keys not found (permanent)' }))
+    expect(el.querySelector('[data-status]')?.textContent).toContain('Unable to decrypt (permanent)')
+  })
+
+  it('does not show decryption error for synced event without decryptionError', () => {
+    const el = render(evt())
+    expect(el.querySelector('[data-status]')).toBeNull()
+  })
+
+  it('shows decryption error before sending status when both present', () => {
+    const el = render(evt({ syncState: 'sending', decryptionError: 'Unable to decrypt: keys not found' }))
+    expect(el.querySelector('[data-status]')?.textContent).toContain('Unable to decrypt')
   })
 
   it('renders no retry button for a failed event without a txnId', () => {

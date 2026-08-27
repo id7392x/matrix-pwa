@@ -5,11 +5,15 @@
   let { event }: { event: EventDto } = $props()
 
   const statusLabel = $derived(
-    event.syncState === 'sending'
-      ? 'Sending...'
-      : event.syncState === 'failed'
-        ? 'Failed'
-        : null,
+    event.decryptionError
+      ? event.decryptionError.includes('permanent')
+        ? 'Unable to decrypt (permanent)'
+        : 'Unable to decrypt (temporary)'
+      : event.syncState === 'sending'
+        ? 'Sending...'
+        : event.syncState === 'failed'
+          ? 'Failed'
+          : null,
   )
 
   async function retry() {
