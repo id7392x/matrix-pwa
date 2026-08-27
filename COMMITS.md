@@ -28,7 +28,7 @@
 
 - **Подпись docs-коммитов:** у бота `OpenCode` нет собственного SSH-ключа, поэтому docs-коммиты физически подписываются ключом активного человека-оператора (см. bootstrap) — на GitHub они показываются Verified под его аккаунтом. Поле `author` остаётся `OpenCode`.
 
-  - **Как определить значения плейсхолдеров:** не подставляй `<repo-owner>`, `<GitHub noreply>`, `<GitHub bot-noreply>` буквально. Реальные значения резолвятся в рантайме процедурой bootstrap (см. ниже) из `gh` CLI / локального git-config — не из `git log` (история может быть пустой или перемешана с ботом). Конкретно:
+  - **Как определить значения плейсхолдеров:** не подставляй `<repo-owner>`, `<GitHub noreply>`, `<GitHub bot-noreply>` буквально. Реальные значения резолвятся в рантайме процедурой bootstrap (см. ниже) из локального git-config / опроса разработчика — не из `git log` (история может быть пустой или перемешана с ботом). Конкретно:
   - `<repo-owner>` и `<GitHub noreply>` — владелец репозитория; noreply-адрес формата `<id>+<username>@users.noreply.github.com`.
   - `<GitHub bot-noreply>` — `opencode-agent[bot]@users.noreply.github.com` (бот OpenCode). Используется как автор док-коммитов и в трейлере `Co-authored-by` код-коммитов.
 - **Приватность:** по умолчанию в авторских строках используются только GitHub noreply-адреса (приватность). Разработчик вправе использовать свой реальный email, верифицированный на его GitHub-аккаунте — для этого достаточно задать `git config --local user.email` (или глобальный) перед bootstrap; процедура использует его как есть. Неверифицированные/чужие email не допускаются (сломают Verified). Личные данные в коммитируемые файлы репозитория не попадают: реестр личностей не хранится в репо, всё резолвится в рантайме.
@@ -40,33 +40,26 @@
 
 ## Identity & Signing Bootstrap
 
-Выполнять перед первым коммитом в сессии (idempotent, без создания файлов в репо). Личность и ключ резолвятся в рантайме из `gh`/локального git-config — в репозиторий ничего не попадает.
+Выполнять перед первым коммитом в сессии (idempotent, без создания файлов в репо, без внешних CLI). Личность и ключ резолвятся локально в рантайме — в репозиторий ничего не попадает. Docs-коммиты всегда authored `OpenCode <opencode-agent[bot]@users.noreply.github.com>`; code — резолвнутым человеком (роль owner/contributor для подписи не нужна).
 
-1. **Роль.** Определить по `gh` (owner/repo — из `git remote get-url origin`):
-   ```sh
-   owner=$(gh api repos/{owner}/{repo} --jq .owner.login)
-   me=$(gh api user --jq .login)
-   # repo-owner если $owner == $me, иначе contributor
-   ```
-   Docs-коммиты всегда authored `OpenCode <opencode-agent[bot]@users.noreply.github.com>`.
-
-2. **Личность (без ручного файла).** Приоритет:
-   - `git config --local user.email` задан → использовать как есть (реальный или noreply — выбор разработчика);
-   - иначе `gh` авторизован → `email="$(gh api user --jq .id)+$(gh api user --jq .login)@users.noreply.github.com"`, `name="$(gh api user --jq .login)"`;
-   - иначе спросить один раз.
+1. **Личность (без ручного файла).** Приоритет:
+   - `git config --local user.email` (или global) задан → использовать как есть (реальный или noreply — выбор разработчика);
+   - иначе спросить разработчика один раз (name + email). Подсказать форму `<id>+<login>@users.noreply.github.com`, но не принуждать.
    Реальный email допустим только если верифицирован на GitHub-аккаунте (иначе нарушится Verified).
 
-3. **Ключ (без перебора по имени).** Загрузить в агент и сверить с GitHub:
+2. **Ключ — смотрим `~/.ssh` (без догадок).** Перечислить локальные ключи:
    ```sh
-   ssh-add -L                                   # загруженные публичные ключи
-   gh api user/ssh_signing_keys --jq '.[].key'  # signing-ключи аккаунта
+   ls ~/.ssh/*.pub
    ```
-   Взять тот публичный ключ из `ssh-add -L`, который есть в списке signing-ключей аккаунта. Если приватника нет в агенте — `ssh-add ~/.ssh/<файл>`. Назначить:
+   - Если **один** `.pub` — взять его.
+   - Если **несколько** — **спросить разработчика**, какой использовать (не угадывать).
+   Убедиться, что приватный ключ загружен в агент (иначе `ssh-add ~/.ssh/<выбранный>`), и назначить:
    ```sh
-   git config --local user.signingkey "<совпавший публичный ключ>"
+   git config --local user.signingkey "~/.ssh/<выбранный>.pub"
    ```
+   **Предупреждение:** без внешних сервисов сверить ключ с GitHub нельзя — разработчик сам должен убедиться, что этот ключ зарегистрирован на его аккаунте как SSH signing-ключ, иначе коммит покажет `Unverified`.
 
-4. **Local git-config** (не global):
+3. **Local git-config** (не global):
    ```sh
    git config --local user.name "$name"
    git config --local user.email "$email"
@@ -76,21 +69,25 @@
    ```
    Дописать в `~/.ssh/allowed_signers` (если нет):
    ```sh
-   echo "$email $(echo "<публичный ключ>" | awk '{print $1, $2}')" >> ~/.ssh/allowed_signers
+   echo "$email $(cat ~/.ssh/<выбранный>.pub)" >> ~/.ssh/allowed_signers
    ```
 
-5. **Чиним баг `core.sshcommand`:** если он указывает на несуществующий путь (напр. `/home/macos/...` на macOS) — сбросить:
+4. **Чиним баги путей:** если `core.sshcommand` указывает на несуществующий путь (напр. `/home/macos/...` на macOS) — сбросить:
    ```sh
    sshpath=$(git config --local core.sshcommand | grep -oP "(?<=ssh -i ')[^']+")
    [ -f "$sshpath" ] || git config --local --unset core.sshcommand
    ```
+   Аналогично проверить `user.signingkey`: если файл по этому пути не существует — переназначить на валидный `~/.ssh/<выбранный>.pub` (шаг 2) или сбросить:
+   ```sh
+   [ -f "$(git config --local user.signingkey)" ] || git config --local --unset user.signingkey
+   ```
 
-6. **Проверка:** `git log --show-signature -1` на любом подписанном коммите → `%G?` = `G`.
+5. **Проверка:** `git log --show-signature -1` на любом подписанном коммите → `%G?` = `G`.
 
 ## Работа с несколькими разработчиками
 
 - **Доверенный агент (владелец репо):** пушит напрямую в `main` без PR (bypass в Ruleset) — **только после явного словесного подтверждения пользователя**. Это единственный путь прямого пуша; ветки для работы агента не создаются.
-- **Люди (контрибьюторы):** в `main` напрямую не пушат; каждый слайс/фича — ветка от `main` → pull request → минимум 1 approval от владельца репо → merge. После merge ветка удаляется (remote-ветки не копим). Перед работой контрибьютор настраивает identity+подпись через bootstrap (см. раздел «Identity & Signing Bootstrap») — роль определится автоматически (`contributor`).
+- **Люди (контрибьюторы):** в `main` напрямую не пушат; каждый слайс/фича — ветка от `main` → pull request → минимум 1 approval от владельца репо → merge. После merge ветка удаляется (remote-ветки не копим). Перед работой контрибьютор настраивает identity+подпись через bootstrap (см. раздел «Identity & Signing Bootstrap») и коммитит под своим именем (author = сам разработчик, трейлер `Co-authored-by: OpenCode` обязателен).
 - **CI обязателен:** гейт (`check`, `test`, `lint`) прогоняется GitHub Actions на push и PR; для PR-веток branch protection требует зелёный статус `gate`.
 - **Правило 7 (гейт) действует всегда:** локально `pnpm run check && pnpm test && pnpm run lint` перед push; `--no-verify` / `--no-hooks` запрещены у всех.
 - Подпись SSH — у каждого разработчика своя (см. `CONTRIBUTING.md`).
