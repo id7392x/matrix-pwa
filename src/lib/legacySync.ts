@@ -42,11 +42,25 @@ export async function startLegacySync(
   activeSyncs.get(userId)?.()
   activeSyncs.set(userId, cancel)
 
-  const noop = (): void => undefined
+    const noop = (): void => undefined
   try {
     const account = await db.accounts.get(userId)
-    const accessToken = accountManager.getAccessToken(userId)
-    if (!account || (!accessToken && !account.refreshToken)) return { stop: noop }
+    let accessToken = accountManager.getAccessToken(userId)
+    let refreshToken = account?.refreshToken
+
+    // SDK-2: Force session restoration BEFORE creating the client.
+    // If accessToken is missing but we have a refresh token, rotate immediately.
+    if (!accessToken && account?.refreshToken) {
+      const refreshed = await refreshAccessTokens(createClient({ baseUrl: normalizeHomeserver(account.homeserver) }), account.refreshToken)
+      accessToken = refreshed.access_token
+      refreshToken = refreshed.refresh_token
+      await accountManager.setTokens(userId, {
+        accessToken: refreshed.access_token,
+        refreshToken: refreshed.refresh_token,
+      })
+    }
+
+    if (!account || (!accessToken && !refreshToken)) return { stop: noop }
     if (cancelled) return { stop: noop }
 
     const client = createClient({
@@ -54,20 +68,9 @@ export async function startLegacySync(
       userId,
       deviceId: account.deviceId,
       accessToken: accessToken ?? undefined,
-      refreshToken: account.refreshToken,
+      refreshToken: refreshToken,
       tokenRefreshFunction: makeTokenRefreshFunction(userId, () => client),
     })
-
-    // SDK-2: a reload leaves sessionStorage empty, so seed the access token from
-    // the refresh token before the first authenticated request.
-    if (!accessToken && account.refreshToken) {
-      const refreshed = await refreshAccessTokens(client, account.refreshToken)
-      client.setAccessToken(refreshed.access_token)
-      await accountManager.setTokens(userId, {
-        accessToken: refreshed.access_token,
-        refreshToken: refreshed.refresh_token,
-      })
-    }
 
     client.on(HttpApiEvent.SessionLoggedOut, () => {
       onLoggedOut?.()

@@ -27,11 +27,18 @@ export class SyncOrchestrator {
           if (raw.type === 'm.room.message') {
             dtos.push(this.toDto(roomId, raw))
           } else if (raw.type === 'm.room.encrypted') {
-            const decrypted = this.e2ee?.state.tryDecrypt(raw)
+            const decrypted = this.e2ee?.tryDecrypt(raw)
             if (decrypted) {
-              dtos.push(this.toDecryptedDto(roomId, raw, decrypted))
+              dtos.push(this.toDto(roomId, raw, {
+                type: decrypted.type,
+                syncState: 'synced',
+              }, decrypted.content))
             } else {
-              dtos.push(this.toUtdDto(roomId, raw))
+              dtos.push(this.toDto(roomId, raw, {
+                type: raw.type,
+                syncState: 'synced',
+                decryptionError: UTD_ERROR,
+              }, {}))
             }
           }
         } catch (error) {
@@ -79,7 +86,7 @@ export class SyncOrchestrator {
 
     // If encrypted and not yet decrypted, mark as UTD in DB (survives reload).
     const encrypted = isEncrypted(raw)
-    const decrypted = encrypted ? this.e2ee?.state.tryDecrypt(raw) : null
+    const decrypted = encrypted ? this.e2ee?.tryDecrypt(raw) : null
 
     const model: EventModel = {
       userId: this.userId,
@@ -95,9 +102,13 @@ export class SyncOrchestrator {
       decryptionError: encrypted && !decrypted ? UTD_ERROR : undefined,
     }
     await db.events.put(model)
+
+    if (encrypted && !decrypted) {
+      this.e2ee?.startUtdTimer(raw.event_id, roomId)
+    }
   }
 
-  private toDto(roomId: string, raw: SyncRawEvent): EventDto {
+  private toDto(roomId: string, raw: SyncRawEvent, overrides: Partial<EventDto> = {}, content?: Record<string, unknown>): EventDto {
     const txnId = raw.unsigned?.transaction_id ?? (typeof raw.txn_id === 'string' ? raw.txn_id : undefined)
     return toEventDto({
       id: raw.event_id,
@@ -105,41 +116,11 @@ export class SyncOrchestrator {
       sender: raw.sender,
       originServerTs: raw.origin_server_ts,
       type: raw.type,
-      content: raw.content,
+      content: content ?? raw.content,
       syncState: txnId ? (this.pendingQueue.isActive(txnId) ? 'sending' : 'synced') : 'synced',
       txnId,
       isEncrypted: isEncrypted(raw),
-    })
-  }
-
-  private toDecryptedDto(roomId: string, raw: SyncRawEvent, decrypted: { content: Record<string, unknown>; type: string }): EventDto {
-    const txnId = raw.unsigned?.transaction_id ?? (typeof raw.txn_id === 'string' ? raw.txn_id : undefined)
-    return toEventDto({
-      id: raw.event_id,
-      roomId,
-      sender: raw.sender,
-      originServerTs: raw.origin_server_ts,
-      type: decrypted.type,
-      content: decrypted.content,
-      syncState: 'synced',
-      isEncrypted: true,
-      txnId,
-    })
-  }
-
-  private toUtdDto(roomId: string, raw: SyncRawEvent): EventDto {
-    const txnId = raw.unsigned?.transaction_id ?? (typeof raw.txn_id === 'string' ? raw.txn_id : undefined)
-    return toEventDto({
-      id: raw.event_id,
-      roomId,
-      sender: raw.sender,
-      originServerTs: raw.origin_server_ts,
-      type: raw.type,
-      content: {},
-      syncState: 'synced',
-      isEncrypted: true,
-      decryptionError: UTD_ERROR,
-      txnId,
+      ...overrides,
     })
   }
 }

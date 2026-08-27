@@ -222,7 +222,7 @@ export class PendingQueueService {
       sender: userId,
       type: 'm.room.message',
       content,
-      isEncrypted: false,
+      isEncrypted: this.client.isRoomEncrypted(roomId),
     })
     // C12: flip the optimistic bubble to synced right away instead of waiting
     // for the /sync echo (idempotent with the later echo via replaceByTxnId).

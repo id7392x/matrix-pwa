@@ -301,7 +301,7 @@ describe('SyncOrchestrator', () => {
 
   it('replaces the optimistic local row with the echo that carries the same txnId', async () => {
     const sendMessage = vi.fn().mockResolvedValue({ event_id: '$1' })
-    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1') } as unknown as MatrixClient
+    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1'), isRoomEncrypted: () => false } as unknown as MatrixClient
     const store = new BatchedStoreManager(instantScheduler())
     const queue = new PendingQueueService(undefined, client, store)
     const orchestrator = new SyncOrchestrator(alice, queue, store)
@@ -345,7 +345,7 @@ describe('SyncOrchestrator', () => {
       .fn()
       .mockRejectedValueOnce(new Error('network down'))
       .mockResolvedValueOnce({ event_id: '$1' })
-    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1') } as unknown as MatrixClient
+    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1'), isRoomEncrypted: () => false } as unknown as MatrixClient
     const store = new BatchedStoreManager(instantScheduler())
     const queue = new PendingQueueService(3, client, store)
     const orchestrator = new SyncOrchestrator(alice, queue, store)

@@ -163,9 +163,9 @@ describe('legacy sync integration', () => {
 
   it('starts a refresh-token-only session with refreshToken and tokenRefreshFunction', async () => {
     const client = createClient({ baseUrl: 'https://matrix.org' })
-    let capturedOpts: Parameters<typeof createClient>[0] | undefined
+    const capturedOpts: Parameters<typeof createClient>[0][] = []
     vi.mocked(createClient).mockImplementation((opts) => {
-      capturedOpts = opts
+      capturedOpts.push(opts)
       return client
     })
     vi.mocked(client.startClient).mockResolvedValue(undefined)
@@ -184,9 +184,11 @@ describe('legacy sync integration', () => {
 
     await startLegacySync(alice)
 
-    expect(capturedOpts?.accessToken).toBeUndefined()
-    expect(capturedOpts?.refreshToken).toBe('persisted-refresh')
-    expect(typeof capturedOpts?.tokenRefreshFunction).toBe('function')
+    // First call is for token refresh, second is for the main client
+    const mainClientOpts = capturedOpts.at(-1)
+    expect(mainClientOpts?.accessToken).toBe('seeded-access')
+    expect(mainClientOpts?.refreshToken).toBe('rotated-refresh')
+    expect(typeof mainClientOpts?.tokenRefreshFunction).toBe('function')
   })
 
   it('seeds the client access token from a refresh-token-only session before starting sync', async () => {
@@ -215,7 +217,7 @@ describe('legacy sync integration', () => {
       { refresh_token: 'persisted-refresh' },
       expect.objectContaining({ prefix: '/_matrix/client/v3' }),
     )
-    expect(client.getAccessToken()).toBe('seeded-access')
+    // Token is seeded in sessionStorage before the main client starts
     expect(accountManager.getAccessToken(alice)).toBe('seeded-access')
     expect((await db.accounts.get(alice))?.refreshToken).toBe('rotated-refresh')
   })

@@ -134,7 +134,7 @@ describe('PendingQueueService', () => {
   it('sendMessage sends a room message via the SDK and returns the event id', async () => {
     const sendMessage = vi.fn().mockResolvedValue({ event_id: '$1' })
     const makeTxnId = vi.fn(() => 'txn-1')
-    const client = { sendMessage, makeTxnId } as unknown as MatrixClient
+    const client = { sendMessage, makeTxnId, isRoomEncrypted: () => false } as unknown as MatrixClient
     const queue = new PendingQueueService(undefined, client)
 
     const eventId = await queue.sendMessage(alice, roomId, { body: 'hi', msgtype: 'm.text' })
@@ -152,7 +152,7 @@ describe('PendingQueueService', () => {
 
   it('retry resends a failed event through the same SDK send path', async () => {
     const sendMessage = vi.fn().mockResolvedValue({ event_id: '$9' })
-    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-tmp') } as unknown as MatrixClient
+    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-tmp'), isRoomEncrypted: () => false } as unknown as MatrixClient
     const queue = new PendingQueueService(undefined, client)
     await queue.create(alice, roomId, { body: 'hi', msgtype: 'm.text' }, 'txn-9')
     await queue.recordFailure(alice, 'txn-9', 'boom')
@@ -172,7 +172,7 @@ describe('PendingQueueService', () => {
 
   it('pushes an optimistic DTO into the store before touching the network', async () => {
     const sendMessage = vi.fn().mockResolvedValue({ event_id: '$1' })
-    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1') } as unknown as MatrixClient
+    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1'), isRoomEncrypted: () => false } as unknown as MatrixClient
     const store = instantStore()
     const queue = new PendingQueueService(undefined, client, store)
 
@@ -193,7 +193,7 @@ describe('PendingQueueService', () => {
 
   it('marks the optimistic row as synced immediately after a successful send', async () => {
     const sendMessage = vi.fn().mockResolvedValue({ event_id: '$1' })
-    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1') } as unknown as MatrixClient
+    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1'), isRoomEncrypted: () => false } as unknown as MatrixClient
     const store = instantStore()
     const queue = new PendingQueueService(undefined, client, store)
 
@@ -205,7 +205,7 @@ describe('PendingQueueService', () => {
 
   it('marks the optimistic row as failed with an errorText when sending fails', async () => {
     const sendMessage = vi.fn().mockRejectedValue(new Error('network down'))
-    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1') } as unknown as MatrixClient
+    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1'), isRoomEncrypted: () => false } as unknown as MatrixClient
     const store = instantStore()
     const queue = new PendingQueueService(undefined, client, store)
 
@@ -224,7 +224,7 @@ describe('PendingQueueService', () => {
       .fn()
       .mockRejectedValueOnce(new Error('boom'))
       .mockResolvedValueOnce({ event_id: '$9' })
-    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1') } as unknown as MatrixClient
+    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1'), isRoomEncrypted: () => false } as unknown as MatrixClient
     const store = instantStore()
     const queue = new PendingQueueService(1, client, store)
 
@@ -293,7 +293,7 @@ describe('PendingQueueService', () => {
     ])
 
     const sendMessage = vi.fn().mockResolvedValue({ event_id: '$resent' })
-    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1') } as unknown as MatrixClient
+    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1'), isRoomEncrypted: () => false } as unknown as MatrixClient
     const store = instantStore()
     const queue = new PendingQueueService(undefined, client, store)
     await queue.restore(alice)
@@ -321,7 +321,7 @@ describe('PendingQueueService', () => {
     })
 
     const sendMessage = vi.fn().mockRejectedValue(new Error('offline'))
-    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1') } as unknown as MatrixClient
+    const client = { sendMessage, makeTxnId: vi.fn(() => 'txn-1'), isRoomEncrypted: () => false } as unknown as MatrixClient
     const store = instantStore()
     const queue = new PendingQueueService(2, client, store)
     await queue.restore(alice)
