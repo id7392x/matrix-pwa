@@ -24,7 +24,9 @@
 
 ## Git-идентичность и подпись коммитов
 
-Каждый коммит подписывается SSH-ключом. Настройка — в [COMMITS.md §Hard rules](COMMITS.md). Проверка: `git log --format='%h | %G?'` — должно быть `G` (Verified).
+Каждый коммит подписывается SSH-ключом. Настройка выполняется **автоматически** процедурой **Identity & Signing Bootstrap** из `COMMITS.md` — нужны `gh` CLI с `gh auth login` и SSH-signing-ключ, зарегистрированный на GitHub. Личность и ключ резолвятся из `gh`/локального git-config, ничего ручного создавать не надо. По умолчанию используется noreply-адрес; если хочешь реальный email — задай `git config --local user.email` (верифицированный на GitHub) перед bootstrap.
+
+Проверка: `git log --format='%h | %G?'` — должно быть `G` (Verified).
 
 ## Воркфлоу (люди: ветка + PR)
 
