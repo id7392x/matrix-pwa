@@ -69,7 +69,13 @@ export class BatchedStoreManager {
 
   flushToUI(): void {
     if (this.buffer.length === 0) return
-    this.events = [...this.events, ...this.buffer]
+    const merged = [...this.events]
+    for (const event of this.buffer) {
+      const idx = merged.findIndex((e) => e.id === event.id)
+      if (idx !== -1) merged[idx] = event
+      else merged.push(event)
+    }
+    this.events = merged
     this.buffer = []
   }
 
