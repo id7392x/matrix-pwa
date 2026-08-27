@@ -13,7 +13,7 @@
    - `docs` — только правки документации без кода.
    - `chore` — инфраструктура (git, setup, meta).
 4. **Scopes** (по слоям проекта): `setup`, `git`, `storage`, `sync`, `stores`, `ui`, `crypto`, `data-model`, `roadmap`, `handoff`, `meta`. Новый scope — только если не подходит существующий.
-5. **Авторство** — по типу коммита (таблица ниже): код пишет `<repo-owner>`, доки пишет `OpenCode`. Глобально git-identity не менять; автора задавать только при создании коммита (`--author`).
+5. **Авторство** — по типу коммита (таблица ниже): код пишет владелец репо, доки пишет `OpenCode`. Глобально git-identity не менять; автора задавать только при создании коммита (`--author`).
 6. **Подписи:** каждый коммит подписывается SSH-ключом (`commit.gpgsign=true`, `gpg.format=ssh`) — на GitHub стоит галка Verified. Подпись не отключать. Коммиттер — автор коммита, его SSH-ключ зарегистрирован на его аккаунте GitHub.
 7. **Гейт:** pre-commit хук прогоняет `pnpm run check && pnpm test && pnpm run lint`. Коммитить только при 100% зелёном прогоне. `--no-verify` / `--no-hooks` запрещены.
 8. **Пуш агента:** коммиты — локальные и свободные, но в `origin` пушить только после явного словесного подтверждения пользователя («пушь», «да»). Bypass в Ruleset даёт право, но не отменяет процессного правила.
@@ -22,21 +22,24 @@
 
 | Коммит | Автор | Трейлер `Co-authored-by` |
 | --- | --- | --- |
-| Код (`feat`/`fix`/`refactor`/`chore` по коду, `test`) | `<repo-owner> <<GitHub noreply>>` | ровно одна строка: `OpenCode <opencode-agent[bot]@users.noreply.github.com>` |
-| Код — сторонний разработчик | `MTWave <его noreply-email>` | ровно одна строка: `OpenCode <opencode-agent[bot]@users.noreply.github.com>` |
+| Код (`feat`/`fix`/`refactor`/`chore` по коду, `test`) | владелец репо (см. `git log`) | ровно одна строка: `Co-authored-by: OpenCode <opencode-agent[bot]@users.noreply.github.com>` |
+| Код — сторонний разработчик | разработчик (см. `git log`) | ровно одна строка: `Co-authored-by: OpenCode <opencode-agent[bot]@users.noreply.github.com>` |
 | Доки (`docs(...)`, правки `AGENTS.md`/`HANDOFF.md`/`COMMITS.md`/файлов в `docs/`) | `OpenCode <opencode-agent[bot]@users.noreply.github.com>` | нет |
 
-- **Приватность:** в авторских строках используются ТОЛЬКО GitHub noreply-адреса (`<id>+<username>@users.noreply.github.com`) — личные email в репозиторий не попадают (они всё равно видны в каждом коммите). У MTWave — его noreply: GitHub → Settings → Emails → «Keep my email addresses private».
-- **Код-коммит:** автор по умолчанию `<repo-owner>`; трейлер — в конце сообщения, после пустой строки, не дублировать.
-- **Код-коммит стороннего разработчика:** автор — сам разработчик (его имя/email), трейлер `Co-authored-by: OpenCode` обязателен, как у `<repo-owner>`.
+- **Как определить значения плейсхолдеров:** не подставляй `<repo-owner>`, `<GitHub noreply>`, `<GitHub bot-noreply>` буквально. Реальные значения смотри в `git log --format='%an <%ae>' | sort -u` — там уже используются правильные author/email. Конкретно:
+  - `<repo-owner>` и `<GitHub noreply>` — владелец репозитория; noreply-адрес формата `<id>+<username>@users.noreply.github.com`.
+  - `<GitHub bot-noreply>` — `opencode-agent[bot]@users.noreply.github.com` (бот OpenCode). Используется как автор док-коммитов и в трейлере `Co-authored-by` код-коммитов.
+- **Приватность:** в авторских строках используются ТОЛЬКО GitHub noreply-адреса — личные email в репозиторий не попадают.
+- **Код-коммит:** автор по умолчанию — владелец репо (из `git log`); трейлер — в конце сообщения, после пустой строки, не дублировать.
+- **Код-коммит стороннего разработчика:** автор — сам разработчик (его имя/email), трейлер `Co-authored-by: OpenCode` обязателен.
 - **Док-коммит:** создавать с явным автором:
   `git commit --author="OpenCode <opencode-agent[bot]@users.noreply.github.com>"`
 - **Не смешивать:** правки `.md` (документация) и `src/` (код) в одном коммите запрещены — разбивай на `docs(...)` и `feat/fix/...`. Исключение — только обновление `AGENTS.md`/`HANDOFF.md` одновременно с правилами, которые они описывают.
 
 ## Работа с несколькими разработчиками
 
-- **Доверенный агент (`<repo-owner>`):** пушит напрямую в `main` без PR (bypass в Ruleset) — **только после явного словесного подтверждения пользователя**. Это единственный путь прямого пуша; ветки для работы агента не создаются.
-- **Люди (в т.ч. `MTWave`):** в `main` напрямую не пушат; каждый слайс/фича — ветка от `main` → pull request → минимум 1 approval от `<repo-owner>` → merge. После merge ветка удаляется (remote-ветки не копим).
+- **Доверенный агент (владелец репо):** пушит напрямую в `main` без PR (bypass в Ruleset) — **только после явного словесного подтверждения пользователя**. Это единственный путь прямого пуша; ветки для работы агента не создаются.
+- **Люди (контрибьюторы):** в `main` напрямую не пушат; каждый слайс/фича — ветка от `main` → pull request → минимум 1 approval от владельца репо → merge. После merge ветка удаляется (remote-ветки не копим).
 - **CI обязателен:** гейт (`check`, `test`, `lint`) прогоняется GitHub Actions на push и PR; для PR-веток branch protection требует зелёный статус `gate`.
 - **Правило 7 (гейт) действует всегда:** локально `pnpm run check && pnpm test && pnpm run lint` перед push; `--no-verify` / `--no-hooks` запрещены у всех.
 - Подпись SSH — у каждого разработчика своя (см. `CONTRIBUTING.md`).
@@ -48,8 +51,8 @@
 ## Проверки перед push
 
 - Пуш без явного словесного подтверждения пользователя запрещён — сначала спросить и дождаться «да».
-- `git log --format='%h | %G? | %an | %s'` — подписи `G`; автор: код `<repo-owner>`, доки `OpenCode`.
-- `git log --format='%ae' | sort -u` — только `<GitHub noreply>` и `opencode-agent[bot]@users.noreply.github.com`.
+- `git log --format='%h | %G? | %an | %s'` — подписи `G`; автор: код — владелец репо, доки — `OpenCode`.
+- `git log --format='%ae' | sort -u` — только noreply-адреса (никаких личных email).
 - `git fetch` перед push; `--force`/`--force-with-lease` — только по явному запросу.
 
 ## Чеклист перед коммитом
@@ -57,7 +60,7 @@
 - [ ] один слайс/фича, атомарно
 - [ ] `<type>(<scope>): <subject>`, subject ≤ 72 симв., английский
 - [ ] код и доки не смешаны
-- [ ] автор: код — `<repo-owner>`, доки — `OpenCode`
+- [ ] автор: код — владелец репо (из `git log`), доки — `OpenCode <opencode-agent[bot]@users.noreply.github.com>`
 - [ ] трейлер: код — ровно 1, доки — 0
 - [ ] подпись SSH (Verified)
 - [ ] гейт зелёный без `--no-verify`

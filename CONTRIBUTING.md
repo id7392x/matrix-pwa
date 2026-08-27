@@ -2,7 +2,7 @@
 
 Онбординг для разработчиков. Правила коммитов — в `COMMITS.md` (обязательны к прочтению). Требования и архитектура — в `AGENTS.md` и `docs/00–04`.
 
-> Работаешь через ИИ-агента (OpenCode, Claude Code и т.п.)? Экскурс по проекту, состояние и правила за тебя развернёт твой агент: просто начни сессию со слов **«я mtwave»** (треки участников — в `AGENTS.md`, состояние — в `HANDOFF.md`/`HANDOFF-MTWAVE.md`).
+> Работаешь через ИИ-агента (OpenCode, Claude Code и т.п.)? Экскурс по проекту, состояние и правила за тебя развернёт твой агент: просто начни сессию со слов **«я <ник>»** (треки участников — в `AGENTS.md`, состояние — в `HANDOFF.md`/`HANDOFF-<ник>.md`).
 
 ## Начало работы
 
@@ -24,24 +24,11 @@
 
 ## Git-идентичность и подпись коммитов
 
-Каждый коммит подписывается SSH-ключом (branch protection требует signed commits):
-
-```sh
-git config user.name "Твоё имя"
-git config user.email "<id>+<username>@users.noreply.github.com"   # GitHub noreply, не личная почта
-git config commit.gpgsign true
-git config gpg.format ssh
-```
-
-- Email автора — **GitHub noreply-адрес** (GitHub → Settings → Emails → «Keep my email addresses private»): репозиторий публичный, личные email в историю коммитов не попадают.
-
-- Загрузи публичный ключ в GitHub → Settings → SSH and GPG keys → New SSH signing key.
-- Проверка подписи: `git log --format='%h | %G?'` — должно быть `G` (Verified).
-- Внутри репозитория автор коммита задаётся твоим именем/email; трейлер `Co-authored-by: OpenCode` обязателен для код-коммитов (см. `COMMITS.md`).
+Каждый коммит подписывается SSH-ключом. Настройка — в [COMMITS.md §Hard rules](COMMITS.md). Проверка: `git log --format='%h | %G?'` — должно быть `G` (Verified).
 
 ## Воркфлоу (люди: ветка + PR)
 
-Автоматизированный агент (`<repo-owner>`) пушит в `main` напрямую — это доверенный путь, для него PR не нужен. Людям — в т.ч. `MTWave` — прямой пуш запрещён (Ruleset):
+Автоматизированный агент (`<repo-owner>`) пушит в `main` напрямую — это доверенный путь, для него PR не нужен. Людям — прямой пуш запрещён (Ruleset):
 
 1. Создай ветку от `main`: `git checkout -b feature/<описание>`.
 2. Работай по текущему слайсу из `docs/04-ROADMAP.md` и правилам `AGENTS.md` (TDD, типизация, blast radius).
