@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { db } from '$storage/db'
 import { BatchedStoreManager } from '$stores/batchedStore.svelte'
@@ -51,24 +51,28 @@ describe('e2ee', () => {
     store = new BatchedStoreManager(instantScheduler())
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   describe('Cold Start blocking', () => {
     it('is not ready before markReady is called', () => {
       const client = mockClient()
       const e2ee = createE2EE(client)
-      expect(e2ee.state.isReady()).toBe(false)
+      expect(e2ee.isReady()).toBe(false)
     })
 
     it('is ready after initRustCrypto resolves', async () => {
       const client = mockClient()
       const e2ee = createE2EE(client)
       await e2ee.initCrypto(alice, deviceId, 'tok', 'https://matrix.org')
-      expect(e2ee.state.isReady()).toBe(true)
+      expect(e2ee.isReady()).toBe(true)
     })
 
     it('tryDecrypt returns null when crypto is not ready', async () => {
       const client = mockClient()
       const e2ee = createE2EE(client)
-      const result = e2ee.state.tryDecrypt({
+      const result = e2ee.tryDecrypt({
         event_id: '$1',
         room_id: roomId,
         type: 'm.room.encrypted',
@@ -82,7 +86,7 @@ describe('e2ee', () => {
       const e2ee = createE2EE(client)
       await e2ee.initCrypto(alice, deviceId, 'tok', 'https://matrix.org')
 
-      const decrypted = e2ee.state.tryDecrypt({
+      const decrypted = e2ee.tryDecrypt({
         event_id: '$1',
         room_id: roomId,
         type: 'm.room.encrypted',
@@ -144,6 +148,104 @@ describe('e2ee', () => {
       expect(updated?.decryptionError).toBeUndefined()
       expect(updated?.content).toEqual({ body: 'hello world' })
       expect(updated?.type).toBe('m.room.message')
+    })
+  })
+
+  describe('UTD 30-second timer', () => {
+    it('sets permanent decryptionError after 30s if not cancelled', async () => {
+      await seedEncryptedEvent()
+      const client = mockClient()
+      const e2ee = createE2EE(client)
+      await e2ee.initCrypto(alice, deviceId, 'tok', 'https://matrix.org')
+
+      const before = await db.events.get([alice, roomId, '$enc1'])
+      expect(before?.decryptionError).toBe('Unable to decrypt: keys not found')
+
+      vi.useFakeTimers()
+      e2ee.startUtdTimer('$enc1', roomId)
+      vi.advanceTimersByTime(30_000)
+      vi.useRealTimers()
+
+      // ponytail: let fake-indexeddb flush the async modify from the timer callback
+      await new Promise<void>((r) => setTimeout(r, 50))
+
+      const after = await db.events.get([alice, roomId, '$enc1'])
+      expect(after?.decryptionError).toBe('Unable to decrypt: keys not found (permanent)')
+    })
+
+    it('cancelUtdTimer prevents the permanent transition', async () => {
+      await seedEncryptedEvent()
+      const client = mockClient()
+      const e2ee = createE2EE(client)
+      await e2ee.initCrypto(alice, deviceId, 'tok', 'https://matrix.org')
+
+      vi.useFakeTimers()
+      e2ee.startUtdTimer('$enc1', roomId)
+      vi.advanceTimersByTime(20_000)
+      e2ee.cancelUtdTimer('$enc1')
+      vi.advanceTimersByTime(30_000)
+      vi.useRealTimers()
+
+      const event = await db.events.get([alice, roomId, '$enc1'])
+      expect(event?.decryptionError).toBe('Unable to decrypt: keys not found')
+    })
+
+    it('starting timer for an already-timed-out event is a no-op', async () => {
+      await db.events.put({
+        eventId: '$perm',
+        userId: alice,
+        roomId,
+        originServerTs: 1000,
+        sender: '@bob:example.org',
+        type: 'm.room.encrypted',
+        content: { algorithm: 'm.megolm.v1.aes-sha2', ciphertext: 'secret' },
+        syncState: 'synced',
+        isEncrypted: true,
+        decryptionError: 'Unable to decrypt: keys not found (permanent)',
+      })
+
+      const client = mockClient()
+      const e2ee = createE2EE(client)
+      await e2ee.initCrypto(alice, deviceId, 'tok', 'https://matrix.org')
+
+      vi.useFakeTimers()
+      e2ee.startUtdTimer('$perm', roomId)
+      vi.advanceTimersByTime(60_000)
+      vi.useRealTimers()
+
+      const event = await db.events.get([alice, roomId, '$perm'])
+      expect(event?.decryptionError).toBe('Unable to decrypt: keys not found (permanent)')
+    })
+
+    it('destroy clears all active timers', async () => {
+      await seedEncryptedEvent()
+      const client = mockClient()
+      const e2ee = createE2EE(client)
+      await e2ee.initCrypto(alice, deviceId, 'tok', 'https://matrix.org')
+
+      vi.useFakeTimers()
+      e2ee.startUtdTimer('$enc1', roomId)
+      e2ee.destroy()
+      vi.advanceTimersByTime(60_000)
+      vi.useRealTimers()
+
+      const event = await db.events.get([alice, roomId, '$enc1'])
+      expect(event?.decryptionError).toBe('Unable to decrypt: keys not found')
+    })
+
+    it('timers are NOT reconstructed from DB on reload', async () => {
+      await seedEncryptedEvent()
+
+      const client = mockClient()
+      const e2ee = createE2EE(client)
+      await e2ee.initCrypto(alice, deviceId, 'tok', 'https://matrix.org')
+
+      vi.useFakeTimers()
+      vi.advanceTimersByTime(60_000)
+      vi.useRealTimers()
+
+      const event = await db.events.get([alice, roomId, '$enc1'])
+      expect(event?.decryptionError).toBe('Unable to decrypt: keys not found')
     })
   })
 
