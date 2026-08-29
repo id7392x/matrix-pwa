@@ -1,6 +1,8 @@
 <script lang="ts">
   import { batchedStore } from '$stores/batchedStore.svelte'
   import { authStore } from '$stores/authStore.svelte'
+  import { roomStore } from '$stores/roomStore.svelte'
+  import { verificationStore } from '$stores/verificationStore.svelte'
   import { getActiveQueue } from '$sync/PendingQueueService'
   import TimelineItem from './TimelineItem.svelte'
 
@@ -14,6 +16,25 @@
       .sort((a, b) => a.originServerTs - b.originServerTs),
   )
   const userId = $derived(authStore.userId)
+
+  // Load cross-signing trust for every encrypted sender as it appears (once per session).
+  $effect(() => {
+    for (const sender of new Set(
+      events
+        .filter((e) => e.isEncrypted && e.sender !== userId)
+        .map((e) => e.sender),
+    )) {
+      verificationStore.ensureTrust(sender)
+    }
+  })
+
+  // The DM partner for the Verify CTA: the single other sender in a direct room.
+  const dmPartner = $derived(
+    roomStore.rooms.some((r) => r.id === roomId && r.isDirect)
+      ? [...new Set(events.map((e) => e.sender).filter((s) => s !== userId))].at(0) ?? null
+      : null,
+  )
+  const partnerNeedsVerification = $derived(dmPartner !== null && !verificationStore.isTrusted(dmPartner))
 
   async function sendMessage() {
     if (!message.trim() || !userId) return
@@ -33,7 +54,17 @@
 </script>
 
 <div class="flex h-full flex-1 flex-col gap-2 overflow-y-auto p-4">
-  <h2 class="text-lg font-semibold text-[var(--text-primary)]">Messages</h2>
+  <div class="flex items-center justify-between">
+    <h2 class="text-lg font-semibold text-[var(--text-primary)]">Messages</h2>
+    {#if partnerNeedsVerification && dmPartner}
+      <button
+        onclick={() => verificationStore.verifyUser(dmPartner, roomId)}
+        class="rounded-lg bg-[var(--accent-color)] px-3 py-1 text-xs font-semibold text-white"
+      >
+        Verify {dmPartner}
+      </button>
+    {/if}
+  </div>
   {#if events.length === 0}
     <p class="text-sm text-[var(--text-primary)]/60">No messages yet</p>
   {/if}

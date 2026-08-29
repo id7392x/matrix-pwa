@@ -5,6 +5,7 @@
   import PasswordPromptDialog from '$components/crypto/PasswordPromptDialog.svelte'
   import RecoveryKeyEntryDialog from '$components/crypto/RecoveryKeyEntryDialog.svelte'
   import RecoverySetupDialog from '$components/crypto/RecoverySetupDialog.svelte'
+  import VerificationDialog from '$components/crypto/VerificationDialog.svelte'
   import { authStore } from '$stores/authStore.svelte'
   import { uiStore } from '$stores/uiStore.svelte'
 
@@ -44,3 +45,4 @@
 <RecoverySetupDialog />
 <RecoveryKeyEntryDialog />
 <PasswordPromptDialog />
+<VerificationDialog />

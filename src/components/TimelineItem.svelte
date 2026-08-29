@@ -1,8 +1,11 @@
 <script lang="ts">
   import { getActiveQueue } from '$sync/PendingQueueService'
+  import { verificationStore } from '$stores/verificationStore.svelte'
   import type { EventDto } from '$types/dto'
 
   let { event }: { event: EventDto } = $props()
+
+  const isUntrusted = $derived(event.isEncrypted && !verificationStore.isTrusted(event.sender))
 
   const statusLabel = $derived(
     event.decryptionError
@@ -26,6 +29,20 @@
 <div class="rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg)] p-3">
   <div class="flex items-center gap-2">
     <span class="text-sm font-medium text-[var(--text-primary)]">{event.sender}</span>
+    {#if isUntrusted}
+      <svg
+        data-shield
+        class="h-4 w-4 text-amber-400"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        aria-label="Sender not verified"
+      >
+        <title>Sender not verified</title>
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      </svg>
+    {/if}
     {#if statusLabel}
       <span data-status class="text-xs text-amber-400">{statusLabel}</span>
     {/if}

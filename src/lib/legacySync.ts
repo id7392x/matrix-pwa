@@ -6,7 +6,9 @@ import { db } from '$storage/db'
 import { batchedStore } from '$stores/batchedStore.svelte'
 import { createE2EE, type E2EEHandle } from '$crypto/e2ee'
 import { attachSecurity, detachSecurity, makeCryptoCallbacks } from '$crypto/security'
+import { attachVerification, detachVerification } from '$crypto/verification'
 import { cryptoStore } from '$stores/cryptoStore.svelte'
+import { verificationStore } from '$stores/verificationStore.svelte'
 import { LegacySyncProvider } from '$sync/legacySyncProvider'
 import { PendingQueueService, registerQueue, unregisterQueue } from '$sync/PendingQueueService'
 import { SyncOrchestrator } from '$sync/SyncOrchestrator'
@@ -91,6 +93,7 @@ export async function startLegacySync(
       return { stop: noop }
     }
     attachSecurity(client)
+    attachVerification(client)
     await cryptoStore.init(userId)
 
     const pendingQueue = new PendingQueueService(undefined, client, batchedStore)
@@ -99,7 +102,9 @@ export async function startLegacySync(
     await gcDeliveredPending(userId, pendingQueue)
     if (cancelled) {
       cryptoStore.reset()
+      verificationStore.reset()
       detachSecurity()
+      detachVerification()
       return { stop: noop }
     }
 
@@ -110,7 +115,9 @@ export async function startLegacySync(
     if (cancelled) {
       provider.stop()
       cryptoStore.reset()
+      verificationStore.reset()
       detachSecurity()
+      detachVerification()
       return { stop: noop }
     }
 
@@ -120,7 +127,9 @@ export async function startLegacySync(
       provider.stop()
       e2ee?.destroy()
       cryptoStore.reset()
+      verificationStore.reset()
       detachSecurity()
+      detachVerification()
       activeSyncs.delete(userId)
     }
     activeSyncs.set(userId, stop)
