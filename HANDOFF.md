@@ -78,16 +78,18 @@
 
 **Статус:** ревью готово, план в `docs/DESIGN.md`. Ожидает подтверждения на implementation.
 
-## 5. Трек `<repo-owner>` — следующий шаг: Слайс 5 — E2EE Cold Start (`docs/04-ROADMAP.md` §8)
+## 5. Трек `<repo-owner>` — следующий шаг: Слайс 6 — история, пагинация, медиа (`docs/04-ROADMAP.md` §9)
 
 **Выполнено (сводка):** слайсы 1–4, ревью-батч (`2dd3072`–`409ea1d`), sync race fix (`ea53bf3`), e2ee echo dedup (`2ce4902`), OIDC SSO (`a8987b8`–`275b946`) — все запушены, гейт зелёный.
 
+**Слайс 5 (E2EE) — 5.1a/b/c/5.1d выполнены:**
+- 5.1a `da0aa39` bootstrap cross-signing + recovery key; 5.1b `5411c17` SAS-верификация + trust-щитки (+25 тестов); 5.1c `395e9f3` QR show/scan + reciprocate (+12 тестов, итого 247); d `83996f4` `docs/05-UI-E2EE.md` (UI/контракты), roadmap/HANDOFF-апдейты.
+- Итого: 20 файлов тестов, 247 passed; гейт зелёный. **Запушены 5.1a/5.1b; `83996f4` и `395e9f3` ещё НЕ в origin.**
+- Ключевые файлы: `src/crypto/security.ts`, `src/crypto/verification.ts` (SAS `runSasVerification`, QR `beginQrShow`/`scanQrVerification`), `src/stores/verificationStore.svelte.ts`, `src/components/crypto/VerificationDialog.svelte`, `src/components/Timeline.svelte`.
+
 **Техдолг:** SSO `m.login.token` (подзадача 4), мульти-аккаунт (отложено до 7), e2ee echo dedup race (известная async гонка).
 
-**Слайс 5 — E2EE Cold Start:** см. `docs/04-ROADMAP.md` §8, skill `e2ee` (`.opencode/skills/e2ee/SKILL.md`).
-- TDD-контракт: Cold Start ordering → UTD temp→perm (30с) → re-decryption приход ключа.
-- Ключевой файл: `src/crypto/e2ee.ts` (реализация `IE2EEService`).
-- storePrefix: `matrix-js-sdk:crypto:${userId}:${deviceId}` (изоляция на аккаунт+устройство).
-- WASM не грузится в Vitest — тесты через `MockRustCrypto` / mock `IE2EEService`.
-- DoD: приватная комната расшифровывается по Cold Start; UTD отображаются и авто-перерасшифровываются; Cross-Signing/SAS/QR/Recovery Key — подзадачи слайса.
+**Слайс 6 — история/retention/медиа:** см. `docs/04-ROADMAP.md` §9.
+- Предусловие: DOMPurify-санитизация + строгий CSP (01-АРХ §7) до первого рендера `formattedBody`/`{@html}`.
+- DoD: пагинация по `timelineGaps`+/messages; retention ≤300 событий/комнату; Media Cache с квотой; виртуализация списков.
 

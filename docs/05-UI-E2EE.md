@@ -4,7 +4,7 @@
 **Статус:** Референс + контракт для UI-трека (дизайн-трек Д2, слайсы 5.1x, будущие слайсы)
 **Подчиняется:** `00-PRINCIPLES.md`, `01-ARCHITECTURE.md`, `02-DATA-MODEL.md`, `03-REFERENCE-CODE.md`, `DESIGN.md`
 
-Документ собирает в одном месте: (1) публичный API уже реализованных модулей (5.1a/5.1b), (2) SDK-контракты `matrix-js-sdk` v42 (Rust Crypto), которые нужно знать для UI, (3) требования к «хорошему UI» для SAS-/QR-верификации, trust-щитков и recovery key, (4) бэклог доработок с приоритетами.
+Документ собирает в одном месте: (1) публичный API уже реализованных модулей (5.1a–5.1c), (2) SDK-контракты `matrix-js-sdk` v42 (Rust Crypto), которые нужно знать для UI, (3) требования к «хорошему UI» для SAS-/QR-верификации, trust-щитков и recovery key, (4) бэклог доработок с приоритетами.
 
 ---
 
@@ -50,7 +50,7 @@ setPasswordPrompt(() => cryptoStore.requestPassword())
 
 ### 2.2 `$crypto/verification.ts`
 
-Модуль интерактивной верификации (SAS сейчас, QR — 5.1c). Через `setVerificationHandlers` публикует UI-сессии и trust-обновления.
+Модуль интерактивной верификации (SAS и QR, 5.1b/5.1c). Через `setVerificationHandlers` публикует UI-сессии и trust-обновления.
 
 - `attachVerification(client: MatrixClient): void` / `detachVerification(): void` — подписка на события crypto (см. §3.1). Вызывается из `legacySync` рядом с `attachSecurity`.
 - `setVerificationHandlers(onSession: SessionHandler | null, onTrust: TrustHandler | null): void` — UI регистрирует два колбэка.
@@ -164,6 +164,8 @@ UI-поведение: при `ShowSas` показать `sas.emoji` (7 штук
 
 ### 3.4 QR-верификация (5.1c, rust crypto)
 
+API модуля `src/crypto/verification.ts`: `beginQrShow(userId, roomId)` — показать свой QR (сессии обеих сторон по `requestVerificationDM`), `scanQrVerification(userId, roomId, qrText)` — отсканировать QR собеседника (строка из jsQR). Проигрывают в те же `VerificationSessionUi` с `phase: 'qr'`.
+
 Методы живут на runtime-классе `RustVerificationRequest` (тип — только каст, в `VerificationRequest` их нет):
 
 ```ts
@@ -174,18 +176,19 @@ interface RustRequestQrOverlay {
 const rustReq = request as unknown as RustRequestQrOverlay
 ```
 
-**Показ QR (show):**
+**Показ QR (show) — `beginQrShow`:**
 1. `request = await crypto.requestVerificationDM(userId, roomId)` (или `requestDeviceVerification`).
-2. `bytes = await rustReq.generateQRCode()` → декодировать в строку (UTF-8) → закодировать снова через QR-либу (`qrcode`), рендер — canvas/изображение.
+2. `bytes = await rustReq.generateQRCode()` → декодировать в строку (UTF-8) → продюснуть `VerificationSessionUi { phase: 'qr', qrText }`; рендер — `uqr` (`renderSVG`) в светлой подложке.
 3. Ждать смены request → появится `verifier` → подписаться на `VerifierEvent.ShowReciprocateQr` → `ShowQrCodeCallbacks { confirm(): void; cancel(): void }` (другая сторона отсканировала и подтвердила) → вызвать `confirm()`, `verifier.verify()` резолвится.
+4. Без байтов (`generateQRCode` → `undefined`) или при ошибке — `phase: 'cancelled'`.
 
-**Сканирование (scan):**
+**Сканирование (scan) — `scanQrVerification`:**
 1. `requestVerificationDM` → `verifier = await rustReq.scanQRCode(bytes)` (байты строки, декодированной jsQR с камеры).
 2. `await verifier.verify()` — ожидание, пока шоу-сторона подтвердит reciprocate.
 
 **Legacy-заглушка:** `getQRCodeBytes()` в rust crypto бросает ошибку («use generateQRCode() instead») — не использовать.
 
-Планируемые зависимости для 5.1c: `qrcode` (рендер) + `jsQR` (декод с камеры).
+Зависимости (установлены в 5.1c): `jsQR` (декод с камеры) + `uqr` (рендер SVG, встроенные типы, ноль зависимостей). Изначально планировалась `qrcode`+`@types/qrcode`, но она тащит `@types/node` и ломает глобальные типы (gotcha из HANDOFF) — не возвращать.
 
 ### 3.5 Recovery key / SSSS
 
@@ -262,7 +265,7 @@ const rustReq = request as unknown as RustRequestQrOverlay
 
 ### 5.1 Показ QR (show)
 
-- Экран: «Сканируйте код на другом устройстве», QR (canvas, `qrcode`-либа) крупно на контрастном светлом фоне (тёмный QR на тёмной теме не читается! — обязательный нюанс DESIGN).
+- Экран: «Сканируйте код на другом устройстве», QR (`uqr` → SVG, белая подложка) крупно на контрастном светлом фоне (тёмный QR на тёмной теме не читается! — обязательный нюанс DESIGN).
 - Подсказка: «Не совпадает ключ с устройством {user}: {deviceId}? Отмена».
 - Состояние ожидания скана: спиннер/текст «Ожидание сканирования…».
 - После скана другой стороной → событие `ShowReciprocateQr` → кнопка **«Confirm»** («Код отсканирован и совпадает»).
@@ -364,14 +367,14 @@ const rustReq = request as unknown as RustRequestQrOverlay
 1. **VerificationDialog: toast на cancelled/mismatch** + защита от двойного клика (уже частично — фаза `done`).
 2. **Trust-легенда** и тултипы у щитков (объяснение «что значит щиток» новичкам).
 3. **needsUserApproval баннер** в DM/группе при смене идентичности (Verify / Pin).
-4. **QR-флоу** (5.1c): full диалог show/scan + переключение.
+4. **QR-флоу-доработки**: ошибки из §5.3 (tost «Код не распознан» при дёрганых декодах), кнопка «Показать свой код» в скан-пейне при отказе камеры, дебаунс/стабильный кадр jsQR. Show/scan-переключение и сами потоки — уже сделаны (5.1c).
 5. **QSS-вход в верификацию из диалога «новое устройство»** (`requestOwnUserVerification`).
 6. **Trust-панель участников/устройств** (список, фильтры, fingerprint).
 7. **Общий Dialog-компонент** (шаблон overlay/панель/кнопки) и инпут-компонент (шест для recovery key).
 8. **Loading/empty states** диалогов (I5, I10).
 9. **Стресс-обновление trust**: большие комнаты — батчить `ensureTrust`, LRU вместо unbounded Map (пока `ponytail: Map по сессии, LRU если комнаты > 100 участников`).
 
-**Уже закрыто (не переделывать):** SAS-флоу (`runSasVerification`), recovery-флоу (setup/unlock/UIA), trust-кэш (`verificationStore`), ленивый загруз доверия в Timeline, shield-иконка.
+**Уже закрыто (не переделывать):** SAS-флоу (`runSasVerification`), QR-флоу show/scan (`beginQrShow`/`scanQrVerification`, 5.1c), recovery-флоу (setup/unlock/UIA), trust-кэш (`verificationStore`), ленивый загруз доверия в Timeline, shield-иконка.
 
 ---
 

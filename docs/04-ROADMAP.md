@@ -240,7 +240,7 @@ E2EE по 00-PRINCIPLES §3.3 и 01-АРХ §4: строгий порядок `c
 
 - [x] Приватная комната расшифровывается по Cold Start Protocol (реализован флаг готовности + initRustCrypto).
 - [x] UTD-состояния отображаются и авто-перерасшифровываются (таймер 30с, re-decryption через Event.decrypted).
-- [ ] Cross-Signing/SAS/QR и Recovery Key — отдельные под-задачи слайса (вынесены в 5.1).
+- [x] Cross-Signing/SAS/QR и Recovery Key (5.1a bootstrap + recovery, 5.1b SAS, 5.1c QR). Документ UI/контрактов — `docs/05-UI-E2EE.md`.
 - [x] Гейт зелёный (check/test/lint). коммит.
 
 ---
