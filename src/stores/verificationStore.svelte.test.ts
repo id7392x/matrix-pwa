@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { beginUserVerification, ensureUserTrust } from '$crypto/verification'
+import { beginQrShow, beginUserVerification, ensureUserTrust, scanQrVerification } from '$crypto/verification'
 import type { VerificationSessionUi } from '$crypto/verification'
-import type { ShowSasCallbacks } from 'matrix-js-sdk/lib/crypto-api/verification'
+import type { ShowQrCodeCallbacks, ShowSasCallbacks } from 'matrix-js-sdk/lib/crypto-api/verification'
 import { verificationStore } from '$stores/verificationStore.svelte'
 
 const handlers = vi.hoisted(() => ({
@@ -11,11 +11,13 @@ const handlers = vi.hoisted(() => ({
 }))
 
 vi.mock('$crypto/verification', () => ({
+  beginQrShow: vi.fn(),
   beginUserVerification: vi.fn(),
   ensureUserTrust: vi.fn(async (u: string) => {
     handlers.onTrust?.(u, true)
     return true
   }),
+  scanQrVerification: vi.fn(),
   setVerificationHandlers: (s: (x: VerificationSessionUi) => void, t: (u: string, v: boolean) => void) => {
     handlers.onSession = s
     handlers.onTrust = t
@@ -132,5 +134,42 @@ describe('verificationStore', () => {
   it('hides the dialog for cancelled sessions', () => {
     emitSession({ otherUserId: bob, phase: 'cancelled', emojis: [] })
     expect(verificationStore.dialogVisible).toBe(false)
+  })
+
+  it('opens the dialog on a pending QR session', () => {
+    emitSession({ otherUserId: bob, phase: 'qr', emojis: [], qrText: 'M2V2:…' })
+    expect(verificationStore.dialogVisible).toBe(true)
+  })
+
+  it('startQrShow routes to beginQrShow', () => {
+    verificationStore.startQrShow(bob, roomId)
+    expect(beginQrShow).toHaveBeenCalledWith(bob, roomId)
+  })
+
+  it('scanQr routes to scanQrVerification', () => {
+    verificationStore.scanQr(bob, roomId, 'M2V2:…')
+    expect(scanQrVerification).toHaveBeenCalledWith(bob, roomId, 'M2V2:…')
+  })
+
+  it('confirmQr calls the QR confirm and flips to done', () => {
+    const callbacks: ShowQrCodeCallbacks = { confirm: vi.fn(), cancel: vi.fn() }
+    emitSession({ otherUserId: bob, phase: 'qr', emojis: [], qrText: 'M2V2:…', callbacks })
+    verificationStore.confirmQr()
+    expect(callbacks.confirm).toHaveBeenCalledTimes(1)
+    expect(verificationStore.session?.phase).toBe('done')
+  })
+
+  it('confirmQr on a pending QR session without callbacks is a no-op', () => {
+    emitSession({ otherUserId: bob, phase: 'qr', emojis: [], qrText: 'M2V2:…' })
+    verificationStore.confirmQr()
+    expect(verificationStore.session?.phase).toBe('qr')
+  })
+
+  it('cancelVerification cancels a QR session and closes the dialog', () => {
+    const callbacks: ShowQrCodeCallbacks = { confirm: vi.fn(), cancel: vi.fn() }
+    emitSession({ otherUserId: bob, phase: 'qr', emojis: [], qrText: 'M2V2:…', callbacks })
+    verificationStore.cancelVerification()
+    expect(callbacks.cancel).toHaveBeenCalledTimes(1)
+    expect(verificationStore.session).toBeNull()
   })
 })

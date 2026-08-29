@@ -38,6 +38,8 @@
   },
   "dependencies": {
     "dexie": "^4.4.4",
-    "matrix-js-sdk": "^42.1.0"
+    "jsqr": "^1.4.0",
+    "matrix-js-sdk": "^42.1.0",
+    "uqr": "^0.1.3"
   }
 }

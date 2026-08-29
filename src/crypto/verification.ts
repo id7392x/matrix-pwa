@@ -5,21 +5,24 @@ import {
   VerificationRequestEvent,
   VerifierEvent,
   type EmojiMapping,
+  type ShowQrCodeCallbacks,
   type ShowSasCallbacks,
   type VerificationRequest,
   type Verifier,
 } from 'matrix-js-sdk/lib/crypto-api/verification'
 import { VerificationMethod } from 'matrix-js-sdk/lib/types'
 
-export type VerificationUiPhase = 'emoji' | 'done' | 'cancelled' | 'mismatch'
+export type VerificationUiPhase = 'emoji' | 'qr' | 'done' | 'cancelled' | 'mismatch'
 
-/** What the verification dialog needs to render, produced from a SAS verifier. */
+/** What the verification dialog needs to render, produced from a SAS or QR verifier. */
 export interface VerificationSessionUi {
   otherUserId: string
   roomId?: string
   phase: VerificationUiPhase
   emojis: EmojiMapping[]
-  callbacks?: ShowSasCallbacks
+  /** QR-content string to display for a `qr` session (render with `qrcode`). */
+  qrText?: string
+  callbacks?: ShowSasCallbacks | ShowQrCodeCallbacks
 }
 
 export type SessionHandler = (session: VerificationSessionUi) => void
@@ -163,5 +166,110 @@ export async function ensureUserTrust(userId: string): Promise<boolean> {
     return verified
   } catch {
     return false
+  }
+}
+
+/** QR methods present on the runtime RustVerificationRequest but absent from the crypto-api type. */
+interface RustRequestQrOverlay {
+  generateQRCode(): Promise<Uint8ClampedArray | undefined>
+  scanQRCode(bytes: Uint8ClampedArray): Promise<Verifier>
+}
+
+function textToBytes(text: string): Uint8ClampedArray {
+  return new Uint8ClampedArray(new TextEncoder().encode(text))
+}
+
+/** Waits until the request exposes a verifier (show side: after the other side reciprocates). */
+async function waitForQrVerifier(request: VerificationRequest): Promise<Verifier | null> {
+  if (request.verifier) return request.verifier
+  await new Promise<void>((resolve) => {
+    const onChange = (): void => {
+      if (
+        request.verifier ||
+        request.phase === VerificationPhase.Cancelled ||
+        request.phase === VerificationPhase.Done
+      ) {
+        request.off(VerificationRequestEvent.Change, onChange)
+        resolve()
+      }
+    }
+    request.on(VerificationRequestEvent.Change, onChange)
+  })
+  return request.verifier ?? null
+}
+
+/**
+ * Starts a verification in which the local user shows their QR code; the other
+ * side scans it and reciprocates, after which the user confirms the match.
+ */
+export async function beginQrShow(userId: string, roomId: string): Promise<void> {
+  if (!crypto) return
+  const request = await crypto.requestVerificationDM(userId, roomId)
+  const session: VerificationSessionUi = { otherUserId: userId, roomId, phase: 'qr', emojis: [], callbacks: undefined }
+  try {
+    const rustReq = request as unknown as RustRequestQrOverlay
+    const bytes = await rustReq.generateQRCode()
+    if (!bytes) {
+      sessionHandler?.({ ...session, phase: 'cancelled' })
+      return
+    }
+    sessionHandler?.({ ...session, qrText: new TextDecoder('utf-8').decode(bytes) })
+
+    const verifier = await waitForQrVerifier(request)
+    if (!verifier) return // cancelled via request events; session already closed
+
+    let userCancelled = false
+    const onReciprocate = (qr: ShowQrCodeCallbacks): void => {
+      sessionHandler?.({ ...session, qrText: session.qrText, callbacks: qr })
+    }
+    const onCancel = (): void => {
+      userCancelled = true
+      sessionHandler?.({ ...session, phase: 'cancelled' })
+    }
+    verifier.on(VerifierEvent.ShowReciprocateQr, onReciprocate)
+    verifier.on(VerifierEvent.Cancel, onCancel)
+    try {
+      await verifier.verify()
+      sessionHandler?.({ ...session, phase: 'done' })
+    } catch {
+      if (!userCancelled) sessionHandler?.({ ...session, phase: 'cancelled' })
+    } finally {
+      verifier.off(VerifierEvent.ShowReciprocateQr, onReciprocate)
+      verifier.off(VerifierEvent.Cancel, onCancel)
+    }
+  } catch {
+    sessionHandler?.({ ...session, phase: 'cancelled' })
+  }
+}
+
+/**
+ * Starts a verification by scanning the other side's QR code; the scanned text
+ * is fed to `scanQRCode` and the resulting verifier awaited.
+ */
+export async function scanQrVerification(userId: string, roomId: string, qrText: string): Promise<void> {
+  if (!crypto) return
+  const request = await crypto.requestVerificationDM(userId, roomId)
+  const session: VerificationSessionUi = { otherUserId: userId, roomId, phase: 'qr', emojis: [], callbacks: undefined }
+  try {
+    const rustReq = request as unknown as RustRequestQrOverlay
+    sessionHandler?.({ ...session, qrText })
+    const verifier = await rustReq.scanQRCode(textToBytes(qrText))
+
+    let userCancelled = false
+    const onCancel = (): void => {
+      userCancelled = true
+      sessionHandler?.({ ...session, phase: 'cancelled' })
+    }
+    verifier.on(VerifierEvent.Cancel, onCancel)
+    try {
+      await verifier.verify()
+      sessionHandler?.({ ...session, phase: 'done' })
+    } catch {
+      if (!userCancelled) sessionHandler?.({ ...session, phase: 'cancelled' })
+    } finally {
+      verifier.off(VerifierEvent.Cancel, onCancel)
+    }
+  } catch {
+    sessionHandler?.({ ...session, phase: 'cancelled' })
   }
 }

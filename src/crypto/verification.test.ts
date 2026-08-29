@@ -2,21 +2,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { MatrixClient } from 'matrix-js-sdk'
 import { CryptoEvent } from 'matrix-js-sdk/lib/crypto-api'
-import type { ShowSasCallbacks, VerificationRequest } from 'matrix-js-sdk/lib/crypto-api/verification'
+import type { ShowQrCodeCallbacks, ShowSasCallbacks, VerificationRequest } from 'matrix-js-sdk/lib/crypto-api/verification'
 import { VerificationPhase, VerifierEvent } from 'matrix-js-sdk/lib/crypto-api/verification'
 
 import {
   attachVerification,
+  beginQrShow,
   beginUserVerification,
   detachVerification,
   ensureUserTrust,
   runSasVerification,
+  scanQrVerification,
   setVerificationHandlers,
   type VerificationSessionUi,
 } from './verification'
 
 const bob = '@bob:example.org'
 const roomId = '!dm:example.org'
+const QR_TEXT = 'M2V2:transaction:public:hmac'
 
 class FakeEmitter {
   private listeners = new Map<string, Array<(...args: unknown[]) => void>>()
@@ -41,6 +44,10 @@ class FakeVerifier extends FakeEmitter {
     this.emit(VerifierEvent.ShowSas, sas)
   }
 
+  emitShowReciprocateQr(qr: ShowQrCodeCallbacks): void {
+    this.emit(VerifierEvent.ShowReciprocateQr, qr)
+  }
+
   emitCancel(): void {
     this.emit(VerifierEvent.Cancel, new Error('cancelled'))
   }
@@ -56,6 +63,12 @@ class FakeRequest extends FakeEmitter {
     const v = new FakeVerifier()
     this.verifier = v
     this.phase = VerificationPhase.Started
+    return v
+  })
+  generateQRCode = vi.fn(async () => new Uint8ClampedArray(new TextEncoder().encode(QR_TEXT)))
+  scanQRCode = vi.fn(async (_bytes: Uint8ClampedArray) => {
+    const v = new FakeVerifier()
+    this.verifier = v
     return v
   })
 
@@ -256,6 +269,100 @@ describe('verification', () => {
 
       await expect(ensureUserTrust(bob)).resolves.toBe(false)
       expect(trusted).toEqual([])
+    })
+  })
+
+  describe('QR verification', () => {
+    it('beginQrShow publishes QR text and completes on reciprocate confirm', async () => {
+      const request = new FakeRequest(VerificationPhase.Requested)
+      const verifier = new FakeVerifier()
+      let resolveVerify: () => void = () => {}
+      verifier.verify = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveVerify = resolve
+          }),
+      )
+      request.verifier = verifier
+      crypto.requestVerificationDM = vi.fn(async () => request)
+      attachVerification(mockClient(crypto))
+
+      const pending = beginQrShow(bob, roomId)
+      await vi.waitFor(() => {
+        expect(sessions.at(-1)?.qrText).toBe(QR_TEXT)
+      })
+      expect(crypto.requestVerificationDM).toHaveBeenCalledWith(bob, roomId)
+
+      const confirm = vi.fn()
+      verifier.emitShowReciprocateQr({ confirm, cancel: vi.fn() })
+      const qrSession = sessions.at(-1)
+      expect(qrSession?.phase).toBe('qr')
+      expect(qrSession?.callbacks).toBeDefined()
+
+      qrSession?.callbacks?.confirm()
+      resolveVerify()
+      await pending
+      expect(sessions.at(-1)?.phase).toBe('done')
+    })
+
+    it('beginQrShow cancels when no QR code can be generated', async () => {
+      const request = new FakeRequest(VerificationPhase.Requested)
+      request.generateQRCode = vi.fn(
+        async () => undefined,
+      ) as unknown as FakeRequest['generateQRCode']
+      crypto.requestVerificationDM = vi.fn(async () => request)
+      attachVerification(mockClient(crypto))
+
+      await beginQrShow(bob, roomId)
+
+      expect(sessions.at(-1)?.phase).toBe('cancelled')
+    })
+
+    it('beginQrShow reports cancelled when QR generation throws', async () => {
+      const request = new FakeRequest(VerificationPhase.Requested)
+      request.generateQRCode = vi.fn(async () => {
+        throw new Error('boom')
+      })
+      crypto.requestVerificationDM = vi.fn(async () => request)
+      attachVerification(mockClient(crypto))
+
+      await beginQrShow(bob, roomId)
+
+      expect(sessions.at(-1)?.phase).toBe('cancelled')
+    })
+
+    it('scanQrVerification feeds decoded text as bytes and completes', async () => {
+      const request = new FakeRequest(VerificationPhase.Unsent)
+      crypto.requestVerificationDM = vi.fn(async () => request)
+      attachVerification(mockClient(crypto))
+
+      await scanQrVerification(bob, roomId, QR_TEXT)
+
+      expect(request.scanQRCode).toHaveBeenCalledWith(new Uint8ClampedArray(new TextEncoder().encode(QR_TEXT)))
+      expect(sessions.at(-1)?.otherUserId).toBe(bob)
+      expect(sessions.at(-1)?.phase).toBe('done')
+    })
+
+    it('scanQrVerification reports cancelled when verification fails', async () => {
+      const request = new FakeRequest(VerificationPhase.Unsent)
+      const verifier = new FakeVerifier()
+      verifier.verify = vi.fn(() => Promise.reject(new Error('cancelled')))
+      request.scanQRCode = vi.fn(async () => verifier)
+      crypto.requestVerificationDM = vi.fn(async () => request)
+      attachVerification(mockClient(crypto))
+
+      await scanQrVerification(bob, roomId, QR_TEXT)
+
+      expect(sessions.at(-1)?.phase).toBe('cancelled')
+    })
+
+    it('QR flows are no-ops without a crypto backend', async () => {
+      attachVerification(mockClient(undefined))
+
+      await beginQrShow(bob, roomId)
+      await scanQrVerification(bob, roomId, QR_TEXT)
+
+      expect(sessions).toHaveLength(0)
     })
   })
 })

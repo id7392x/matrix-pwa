@@ -63,6 +63,12 @@
       >
         Verify {dmPartner}
       </button>
+      <button
+        onclick={() => verificationStore.startQrShow(dmPartner, roomId)}
+        class="ml-2 rounded-lg border border-[var(--glass-border)] bg-white/5 px-3 py-1 text-xs text-[var(--text-primary)] hover:bg-white/10"
+      >
+        QR code
+      </button>
     {/if}
   </div>
   {#if events.length === 0}
