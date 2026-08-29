@@ -67,15 +67,17 @@ export async function setupRecovery(): Promise<string> {
   const encoded = generated.encodedPrivateKey
   if (!encoded) throw new Error('recovery key encoding failed')
 
-  await crypto.bootstrapCrossSigning({ authUploadDeviceSigningKeys: makeUploadDeviceSigningKeys() })
+  await crypto.bootstrapCrossSigning({
+    authUploadDeviceSigningKeys: makeUploadDeviceSigningKeys(),
+    setupNewCrossSigning: true,
+  })
   await crypto.bootstrapSecretStorage({
     createSecretStorageKey: async () => generated,
     setupNewKeyBackup: true,
+    setupNewSecretStorage: true,
   })
   return encoded
 }
-
-export type RestoreStatus = 'restored' | 'no-backup' | 'untrusted' | 'failed'
 
 /**
  * Detects the server-side key backup, and if it is trusted, loads its decryption
@@ -83,6 +85,8 @@ export type RestoreStatus = 'restored' | 'no-backup' | 'untrusted' | 'failed'
  * Old (pre-login) encrypted history then re-decrypts via `Event.decrypted`.
  * Never throws: cold-start must not break because a restore failed.
  */
+export type RestoreStatus = 'restored' | 'no-backup' | 'untrusted' | 'failed'
+
 export async function autoRestoreBackup(): Promise<RestoreStatus> {
   if (!crypto) return 'no-backup'
   try {

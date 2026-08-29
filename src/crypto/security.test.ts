@@ -195,7 +195,14 @@ describe('security', () => {
 
       expect(encoded).toBe('rec-key-abc')
       expect(order).toEqual(['cross', 'sss'])
-      expect(crypto.bootstrapSecretStorage).toHaveBeenCalledWith(expect.objectContaining({ setupNewKeyBackup: true }))
+      // setupRecovery must force a clean reset so it never reads broken 4S secrets
+      // (secretStorage.get() throws "Content is not encrypted!" on plaintext entries).
+      expect(crypto.bootstrapCrossSigning).toHaveBeenCalledWith(
+        expect.objectContaining({ setupNewCrossSigning: true }),
+      )
+      expect(crypto.bootstrapSecretStorage).toHaveBeenCalledWith(
+        expect.objectContaining({ setupNewKeyBackup: true, setupNewSecretStorage: true }),
+      )
     })
 
     it('resolves UIA by prompting for the account password', async () => {
