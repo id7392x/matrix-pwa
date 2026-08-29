@@ -5,8 +5,8 @@
 
 ## 1. Общее состояние репозитория
 
-- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, **HEAD: `edd00e7`, 70 коммитов**, **запушено в `origin`** (`github.com/<repo-owner>/matrix-pwa`, **публичный**). Все коммиты подписаны SSH (GitHub: Verified). История переписана: `id7392x` вычищен из .md файлов, author/committer fields сохранены. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
-- Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` **167/167**, `pnpm run lint` чисто. Pre-commit хук (simple-git-hooks) прогоняется автоматически на каждом коммите.
+- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, **HEAD: `40877fa`**, **запушено в `origin`** (`github.com/<repo-owner>/matrix-pwa`, **публичный**). ⚠️ **6 коммитов впереди `origin`: `0c38803`, `83996f4`, `c838e5b`, `c96e95f`, `61c23df`, `40877fa` (Слайс 5 хвост + docs-пассы) — пуш по явному подтверждению.** Все коммиты подписаны SSH (GitHub: Verified). История переписана: `id7392x` вычищен из .md файлов, author/committer fields сохранены. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
+- Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` **252/252**, `pnpm run lint` чисто. Pre-commit хук (simple-git-hooks) прогоняется автоматически на каждом коммите.
 - **GitHub Ruleset «Protect main»**: люди — только через PR (1 approval + статус-чек `gate` + signed commits); `<repo-owner>` — bypass на прямой push. ⚠️ Проверить вручную во вкладке Bypass: там должен быть ТОЛЬКО `<repo-owner>`.
 - **GitHub Actions** (`acd2798`): гейт `pnpm check/test/lint` на push и pull_request.
 - **Push-политика по трекам**: `<repo-owner>` — только локальные коммиты, пуш в `origin` после явного словесного подтверждения; контрибьюторы — только свои feature-ветки (подробности — `COMMITS.md`, `CONTRIBUTING.md`).
@@ -36,8 +36,8 @@
 | 3 | Отправка сообщений (optimistic UI + dual-path + retry) | `<repo-owner>` | **выполнен** (`4eba646`, запушен) |
 | 4 | Авторизация: пароль + refresh-токен (+ SSO) | `<repo-owner>` | **выполнен** (локально; базовый пароль, SSO — подзадача) |
 | Ревью-батч | фиксы по итогам ревью домена (см. `04-ROADMAP.md`) | `<repo-owner>` | **выполнен** (локально, `2dd3072`–`409ea1d`) |
-| 5 | E2EE Cold Start + re-decryption | `<repo-owner>` | **следующий** |
-| 6 | История, пагинация, retention, медиа-кэш | свободен | запланирован |
+| 5 | E2EE Cold Start + re-decryption | `<repo-owner>` | **выполнен** (локально; см. §5) |
+| 6 | История, пагинация, retention, медиа-кэш | свободен | **следующий** |
 | 7 | Multi-tab + Lazy-sync | свободен | запланирован |
 | Дизайн-трек (Д1–Д2) | горизонтальный, не вертикальный слайс | свободен | **ревью выполнено** (см. `docs/DESIGN.md`)
 
@@ -78,18 +78,32 @@
 
 **Статус:** ревью готово, план в `docs/DESIGN.md`. Ожидает подтверждения на implementation.
 
-## 5. Трек `<repo-owner>` — следующий шаг: Слайс 6 — история, пагинация, медиа (`docs/04-ROADMAP.md` §9)
+## 5. Трек `<repo-owner>` — следующий шаг: Слайс 6 — история, пагинация, retention, медиа (`docs/04-ROADMAP.md` §9)
 
-**Выполнено (сводка):** слайсы 1–4, ревью-батч (`2dd3072`–`409ea1d`), sync race fix (`ea53bf3`), e2ee echo dedup (`2ce4902`), OIDC SSO (`a8987b8`–`275b946`) — все запушены, гейт зелёный.
+**Выполнено (сводка):** слайсы 1–5, ревью-батч (`2dd3072`–`409ea1d`), sync race fix (`ea53bf3`), e2ee echo dedup (`2ce4902`), OIDC SSO (`a8987b8`–`275b946`) — запушены; **Слайс 5 (5.1a–5.1d) + фиксы ревью + docs-пассы — НЕ запушены** (6 локальных коммитов впереди `origin`).
 
-**Слайс 5 (E2EE) — 5.1a/b/c/5.1d выполнены:**
-- 5.1a `da0aa39` bootstrap cross-signing + recovery key; 5.1b `5411c17` SAS-верификация + trust-щитки (+25 тестов); 5.1c `395e9f3` QR show/scan + reciprocate (+12 тестов, итого 247); d `83996f4` `docs/05-UI-E2EE.md` (UI/контракты), roadmap/HANDOFF-апдейты.
-- Итого: 20 файлов тестов, 247 passed; гейт зелёный. **Запушены 5.1a/5.1b; `83996f4` и `395e9f3` ещё НЕ в origin.**
-- Ключевые файлы: `src/crypto/security.ts`, `src/crypto/verification.ts` (SAS `runSasVerification`, QR `beginQrShow`/`scanQrVerification`), `src/stores/verificationStore.svelte.ts`, `src/components/crypto/VerificationDialog.svelte`, `src/components/Timeline.svelte`.
+**Слайс 5 (E2EE) — ЗАВЕРШЁН кодом и доками** (локально, 6 коммитов ждут пуша):
+- Коммиты: `da0aa39` (5.1a bootstrap+recovery), `5411c17` (5.1b SAS+trust), `0c38803` (5.1c QR show/scan), `83996f4`/`c838e5b` (docs/05-UI-E2EE + roadmap/handoff), `c96e95f` (фиксы ревью #1–#7 + убран каст + dead Cancel), `61c23df` (доки QR-гардов), `40877fa` (cross-doc consistency pass + §11.1).
+- Итого **252 теста** (20 файлов), гейт зелёный; подпись SSH.
+- Ключевые файлы: `src/crypto/security.ts`, `src/crypto/verification.ts` (SAS `runSasVerification`, QR `beginQrShow`/`scanQrVerification`/`cancelActiveVerification`), `src/stores/verificationStore.svelte.ts`, `src/components/crypto/VerificationDialog.svelte`, `src/components/Timeline.svelte`.
+- Гард против воскрешения/отмены: модульный `generation`+`cancelRequested` гейт в `emit()`; `VerifierEvent.Cancel` в SDK не эмитится — отмена = reject `verify()`.
 
 **Техдолг:** SSO `m.login.token` (подзадача 4), мульти-аккаунт (отложено до 7), e2ee echo dedup race (известная async гонка).
 
-**Слайс 6 — история/retention/медиа:** см. `docs/04-ROADMAP.md` §9.
-- Предусловие: DOMPurify-санитизация + строгий CSP (01-АРХ §7) до первого рендера `formattedBody`/`{@html}`.
-- DoD: пагинация по `timelineGaps`+/messages; retention ≤300 событий/комнату; Media Cache с квотой; виртуализация списков.
+**Слайс 6 — история/retention/медиа:** см. `docs/04-ROADMAP.md` §9. Оценка: **средний объём, несколько независимых подзадач** (см. §5.1).
+
+### 5.1. Слайс 6 — разбивка, сложность и объём
+
+Предусловие обязательное, отдельной задачей (ДО рендера `formattedBody`):
+- **6.0 Санитизация + CSP** (небольшая, критичная): DOMPurify для `formatted_body` (`03-REFERENCE-CODE.md` §3 `EventDto.formattedBody`), строгий CSP по `01-АРХ §7` (prod-заголовки или prod-only `<meta>`; НЕ статический CSP в dev — ломает HMR), рендер `{@html}` только после санитизации. **Сейчас в коде НЕТ ни одного `{@html}` для пользовательского контента** — единственный `{@html qrSvg}` — безопасный локальный SVG (uqr-биты), не трогать. XSS-поверхности пока нет.
+
+Подзадачи (независимые, каждая — своя горизонталь/свой коммит):
+| Подзадача | Объём | Сложность | Что есть / чего нет |
+|---|---|---|---|
+| **6.1 Пагинация вверх** (`timelineGaps` + `/messages`) | средний | средне | Таблица `timelineGaps` **уже есть** в db.ts (Слайс 0) + тесты. НЕТ сервиса записи gap при долгом оффлайне, НЕТ вызова `client.getPaginationToken`/`/messages`, НЕТ lazy-load на скролл вверх в Timeline. |
+| **6.2 Retention ≤300 событий/комнату** | малый | низкая–средняя | НЕТ фоновой очистки по индексу `[userId+roomId+originServerTs]`; защита Reply/Thread соседних (stub-снимки) — чистая новая логика. |
+| **6.3 Media Cache (Cache Storage + LRU/FIFO)** | средний | средняя | НЕТ `mediaCache.ts` вообще; нужны квота + очистка по retention/`QuotaExceededError`. |
+| **6.4 Виртуализация ленты** | средний–крупный | средняя–высокая | Сейчас `{#each}` по всем событиям (суть записан в ROADMAP как хвост слайса 1) — нужно окно/переиспользование DOM. Затрагивает `Timeline.svelte`/`TimelineItem`. |
+
+**Совет для старта:** идти в порядке 6.0 (безопасность, обязательно) → 6.2 (самый дешёвый) → 6.1 → 6.3 → 6.4 (самый крупный). Каждая подзадача — TDD (падающий тест → реализация → зелёный) + отдельный коммит; DOMPurify — новая dep (единственная разрешённая добавка; проверить, что не тащит `@types/node`, см. gotcha).
 
