@@ -44,9 +44,12 @@
 | 5 | E2EE Cold Start + re-decryption | слайсы 2, 4 | `<owner>` | **выполнен** |
 | 6 | История, пагинация, retention, медиа-кэш | слайсы 2–4 | свободен | **следующий** |
 | 7 | Multi-tab (Master/Slave) + Lazy-sync | слайсы 2, 4, 5 | свободен | запланирован |
+| 8 | Управление комнатами: создание (DM/группа), join/leave/forget, invite, rename/avatar | слайсы 2–4 | свободен | запланирован (после 6) |
+| 9 | Папки/разделы чатов (accountData `m.tag`; Spaces — опция) | слайсы 2–4, 8 | свободен | запланирован (после 8) |
 
 
-- **Порядок следующих шагов:** Слайс 6 (история/пагинация/медиа, + DOMPurify/CSP до первого `{@html}`) → Слайс 7 (Multi-tab/Lazy-sync) → Дизайн-трек Д2 (адаптация под проект).
+- **Трек после MVP (не слайс):** видеокомнаты (MatrixRTC, MSC4143/4195 + LiveKit SFU) — требуют серверной инфраструктуры вне приложения, см. §14.
+- **Порядок следующих шагов:** Слайс 6 (история/пагинация/медиа, + DOMPurify/CSP до первого `{@html}`) → Слайс 8 (управление комнатами) → Слайс 7 (Multi-tab/Lazy-sync) → Слайс 9 (папки/разделы) → Дизайн-трек Д2 (адаптация под проект) → трек видеокомнат (после MVP, §14).
 
 ### 3.1. Дизайн-трек (горизонтальный, не вертикальный слайс)
 
@@ -274,6 +277,94 @@ E2EE по 00-PRINCIPLES §3.3 и 01-АРХ §4: строгий порядок `c
 - **Паттерн «код + доки»:** код-коммиты (`feat`/`fix`) — от автора-владельца (при соглашении — с трейлером `Co-authored-by` для AI), доки-коммиты (`docs`) — отдельными коммитами. Код и доки не смешиваются в одном коммите. Правила — `COMMITS.md`.
 - **Ревью перед закрытием:** после набора кусков запускается пак ревью-агентов (ponytail / SDK-API / безопасность / баги) по `origin/main..HEAD`; ключевые утверждения сверяются с исходниками SDK и кода. Найденные дефекты чинятся отдельным `fix`-коммитом, после чего слайс официально закрывается в §2/§8 и roadmap.
 - Все расхождения с доки (например, «SDK-метод оказался публичным, каст не нужен») фиксируются в соответствующем доку (§3.4/3.5 05-UI-E2EE), а не в комментариях кода.
+
+---
+
+## 12. Слайс 8 — Управление комнатами: создание, join/leave/forget, invite
+
+### 12.1. Цель
+
+Пользовательские операции с комнатами: создать чат (DM или групповой) с инвайтами, присоединиться по id/алиасу, принять/отклонить входящий invite, выйти (`leave`) и «забыть» (`forget`) комнату, переименовать/сменить аватар. Сквозной путь `UI → roomActions → /sync echo → DB/UI` по образцу отправки сообщений (Слайс 3).
+
+### 12.2. Ключевые решения
+
+- Создание: `client.createRoom(ICreateRoomOpts)` (`name`, `preset`, `invite: string[]`, `is_direct`, `room_alias_name`, `topic`; `creation_content` — для Spaces/видеокомнат в будущем) → `{ room_id }`. Оптимистичная запись комнаты в `rooms`/`roomStore` с индикатором «создаётся»; статус эха — из `/sync` (upsert-by-id, дубликат исключён).
+- Join: `client.joinRoom(roomIdOrAlias)` — поддержка алиаса `#alias:server`; после ответа комната доезжает по `/sync`.
+- Invite: исходящий — `client.invite(roomId, userId)`. Входящие инвайты — комнаты с `membership:'invite'`: сейчас `SyncOrchestrator.upsertRoom` пишет только `'join'`, добавить обработку invite-комнат (отдельная секция в `RoomList` + accept/decline через `joinRoom`/`leave`).
+- Выход/удаление: `client.leave(roomId)` + `client.forget(roomId)` (локальное удаление комнаты и событий — механизм уже есть: `SyncOrchestrator.removeRoom`, `26fa419`). «Удалить у всех» (purge) — модераторская admin-функция `shutdownRoom`, вне слайса.
+- Прочее (дешёвое, SDK one-liner): `setRoomName`/`setRoomTopic`, `setRoomAvatar`, `createAlias`/`deleteAlias`.
+- Служба: `$sync/roomActions.ts`, гейт на активный `client`/`getActiveQueue()`; мульти-аккаунт (keyed by userId) — техдолг Слайса 7.
+
+### 12.3. TDD-контракт
+
+1. `roomActions.createRoom` (мок `createClient`): вернулся `room_id`, комната появилась в `roomStore` до эха (optimistic), после эха `/sync` дубликатов нет.
+2. `joinRoom` по алиасу и accept-инвайта: комната появляется в `rooms` после ответа; `decline` → `leave`, invite-комната исчезает из листа.
+3. `leave`/`forget`: `rooms` и `events` комнаты удалены локально (проверка по диапазонам PK, как в `removeRoom`).
+4. `SyncOrchestrator`: `membership:'invite'` → `RoomModel` с корректным membership; invite-комнаты не попадают в join-лист.
+5. UI-тест: форма создания (имя + участники) вызывает `roomActions.createRoom`; кнопка Invite в заголовке комнаты.
+
+### 12.4. DoD
+
+- [ ] Создание DM и групповой комнаты с инвайтами из UI, оптимистично.
+- [ ] Join по id/алиасу; accept/decline входящих инвайтов.
+- [ ] Leave/forget удаляет комнату и её события локально.
+- [ ] Rename/avatar работают и переживают reload (state-эхо `/sync`).
+- [ ] Гейт зелёный; коммит.
+
+---
+
+## 13. Слайс 9 — Папки/разделы чатов
+
+### 13.1. Цель
+
+«Разделы» в листе комнат (как в Element): пользовательские папки через accountData-теги `m.tag` (`m.favourite`, `m.custom.*`), группировка и сортировка в `RoomList`. Соответствует in-scope из 00-PRINCIPLES §2 («пользовательские папки чатов через accountData»). Spaces — отдельная опция поверх, не в базовой версии.
+
+### 13.2. Ключевые решения
+
+- Теги: accountData `m.tag.<roomId>` через `client.getAccountData('m.tag.<roomId>')`/`setAccountData`; содержимое `{ tags: { 'm.favourite': { order }, 'm.custom.work': { order } } }`.
+- Подписка в синке: accountData приходит в секции `account_data` `/sync` — `SyncOrchestrator` пишет теги в новую таблицу Dexie `roomTags` (PK `[userId+roomId+tagName]`); миграция схемы — только через `this.version(2)` (статическая схема, 00-PRINCIPLES §3.4.7).
+- UI: `RoomList` группирует комнаты по тегам (секции с заголовком), управление папками через контекстное меню «Add to folder»; фиксированные секции Favourites/People/Rooms = маппинг на `m.favourite`/`m.direct`/без тега.
+- Опция Spaces (позже): создание комнаты с `creation_content: { type: 'm.space' }` + `m.space.child` state-события; сложные Spaces — вне MVP (00 §2).
+
+### 13.3. TDD-контракт
+
+1. Таблица `roomTags`: запись `{userId, roomId, tagName, order}`; выборка по `[userId+roomId]`.
+2. `SyncOrchestrator`: `account_data` из `/sync` → upsert тегов; отсутствующий тег в `tags` → удаление из таблицы.
+3. `setTag`/`removeTag` в `$sync/roomActions.ts`: `setAccountData` + локальное обновление таблицы.
+4. UI: группировка `roomStore` по тегам, порядок секций из `order`.
+
+### 13.4. DoD
+
+- [ ] Пользователь создаёт/переименовывает/удаляет папки (теги) и раскладывает по ним комнаты.
+- [ ] Группировка переживает reload (теги в IndexedDB).
+- [ ] Гейт зелёный; коммит.
+
+---
+
+## 14. Трек после MVP — видеокомнаты (MatrixRTC)
+
+### 14.1. Что это
+
+Видеокомнаты = обычные Matrix-комнаты с `creation_content: { type: 'm.video' }` + встроенный RTC: состояние вызова — в state-событиях `org.matrix.msc3401.call.member`, медиа — через SFU. В Element это отдельный продукт (Element Call, AGPL): MatrixRTC (MSC4143) + LiveKit backend (MSC4195). VoIP и сложные Spaces — out of scope MVP (00-PRINCIPLES §2).
+
+### 14.2. Почему трек после MVP, а не слайс
+
+- Требует серверной инфраструктуры вне приложения: LiveKit SFU + MatrixRTC Authorization Service (`lk-jwt-service`) + homeserver-ручка `GET /_matrix/client/unstable/org.matrix.msc4143/rtc/transports` (MSC4519).
+- Клиент: либо встраивание embedded-пакета Element Call (widget API), либо собственный MatrixRTC-клиент (камера/микрофон, переговоры, лобби, скриншаринг, JWT-обмен с auth service).
+- Цепочка зависимостей: стабильные слайсы 1–8, санитизация/CSP (6.0), медиа-кэш (6.3), мультитаб (7).
+
+### 14.3. Открытые решения (принимаются на старте трека)
+
+- Self-hosting LiveKit + auth service против matrix.org vs собственный homeserver.
+- Встраивание Element Call (виджет) vs собственная реализация MatrixRTC в PWA.
+- Лицензия: AGPL-код Element Call vs собственная реализация.
+
+### 14.4. DoD трека
+
+- [ ] Создание видеокомнаты из UI (`m.video` + вызов).
+- [ ] Подключение к вызову, список участников, вкл/выкл камеры и микрофона, выход.
+- [ ] Работает между аккаунтами разных homeserver'ов.
+- [ ] Гейт зелёный; коммит.
 
 ---
 
