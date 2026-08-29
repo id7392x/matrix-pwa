@@ -4,31 +4,41 @@
   import { verificationStore } from '$stores/verificationStore.svelte'
 
   let mode = $state<'show' | 'scan'>('show')
-  let qrSvg = $state('')
   let scanning = $state(false)
   let scanError = $state('')
+  /** True once this dialog run has scanned a remote code; disables re-rendering it as our QR. */
+  let flowIsScan = $state(false)
   let rafId = 0
   let stream: MediaStream | undefined
   let video = $state<HTMLVideoElement>()
 
-  // QR image for the "show" pane, rendered on demand from the session's QR text.
-  $effect(() => {
+  // QR image for the "show" pane. A scan-initiated flow has no local code to show,
+  // so nothing is rendered there (the scanned text belongs to the other side).
+  const qrSvg = $derived.by(() => {
+    if (flowIsScan) return ''
     const session = verificationStore.session
-    if (session?.phase === 'qr' && session.qrText && !qrSvg) {
-      try {
-        qrSvg = renderSVG(session.qrText, { pixelSize: 8 })
-      } catch {
-        qrSvg = ''
-      }
+    if (session?.phase !== 'qr' || !session.qrText) return ''
+    try {
+      return renderSVG(session.qrText, { pixelSize: 8 })
+    } catch {
+      return ''
     }
   })
 
-  // When the dialog hides, stop the camera loop and reset local state.
+  // Stop the camera whenever the scan pane is left or the dialog closes.
+  $effect(() => {
+    const session = verificationStore.session
+    if (!verificationStore.dialogVisible || session?.phase !== 'qr' || mode !== 'scan') {
+      stopScan()
+    }
+  })
+
+  // Reset transient UI state when the dialog hides between flows.
   $effect(() => {
     if (!verificationStore.dialogVisible) {
       stopScan()
-      qrSvg = ''
       mode = 'show'
+      flowIsScan = false
     }
   })
 
@@ -40,6 +50,7 @@
   }
 
   async function startScan(): Promise<void> {
+    if (scanning) return
     scanError = ''
     if (!navigator.mediaDevices?.getUserMedia || !video) {
       scanError = 'Камера недоступна. Дайте разрешение или используйте «Показать мой код».'
@@ -73,6 +84,7 @@
     const code = jsQR(image.data, image.width, image.height)
     if (code?.data) {
       stopScan()
+      flowIsScan = true
       const session = verificationStore.session
       if (session) {
         verificationStore.scanQr(session.otherUserId, session.roomId ?? '', code.data)
@@ -154,7 +166,14 @@
         </div>
         {#if mode === 'show'}
           <div class="mt-3 flex flex-col items-center gap-2">
-            {#if qrSvg}
+            {#if flowIsScan && !session.callbacks}
+              <div class="flex h-64 w-64 items-center justify-center rounded-lg border border-[var(--glass-border)] bg-white/5 p-4">
+                <p class="text-center text-sm text-[var(--text-primary)]/70">
+                  You scanned a code. Ask {session.otherUserId} to show yours instead, if needed — then switch to
+                  Scan a code.
+                </p>
+              </div>
+            {:else if qrSvg}
               <div
                 class="h-64 w-64 rounded-lg border border-[var(--glass-border)] bg-white p-2 [&_svg]:h-full [&_svg]:w-full"
               >

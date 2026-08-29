@@ -20,7 +20,7 @@ export interface VerificationSessionUi {
   roomId?: string
   phase: VerificationUiPhase
   emojis: EmojiMapping[]
-  /** QR-content string to display for a `qr` session (render with `qrcode`). */
+  /** QR-content string to display for a `qr` session (render with `uqr`). */
   qrText?: string
   callbacks?: ShowSasCallbacks | ShowQrCodeCallbacks
 }
@@ -44,15 +44,28 @@ let trustHandler: TrustHandler | null = null
 let onIncomingRequest: (request: VerificationRequest) => void = () => {}
 let onTrustChanged: (userId: string, status: UserVerificationStatus) => void = () => {}
 
+/** Bumped on detach so in-flight flows from a prior session can never emit into a new one. */
+let generation = 0
+/** Set by the store's cancel; short-circuits any flow waiting on the network. */
+let cancelRequested = false
+
+/** Emits `session` only if the flow it belongs to is still the current generation and not cancelled. */
+function emit(session: VerificationSessionUi, gen: number): void {
+  if (gen !== generation || cancelRequested || !sessionHandler) return
+  sessionHandler(session)
+}
+
 export function attachVerification(client: MatrixClient): void {
   detachVerification()
+  generation = 0
+  cancelRequested = false
   crypto = client.getCrypto() ?? null
   sink = crypto as unknown as CryptoEventSink | null
   onIncomingRequest = (request) => {
     void runSasVerification(request, request.roomId)
   }
   onTrustChanged = (userId, status) => {
-    trustHandler?.(userId, status.isCrossSigningVerified())
+    emitTrust(userId, status.isCrossSigningVerified(), generation)
   }
   sink?.on(CryptoEvent.VerificationRequestReceived, onIncomingRequest)
   sink?.on(CryptoEvent.UserTrustStatusChanged, onTrustChanged)
@@ -63,6 +76,7 @@ export function detachVerification(): void {
   sink?.off(CryptoEvent.UserTrustStatusChanged, onTrustChanged)
   crypto = null
   sink = null
+  generation++
 }
 
 export function setVerificationHandlers(
@@ -71,6 +85,16 @@ export function setVerificationHandlers(
 ): void {
   sessionHandler = onSession
   trustHandler = onTrust
+}
+
+/** Requests the store to abandon the active flow; the SDK never emits a cancel event. */
+export function cancelActiveVerification(): void {
+  cancelRequested = true
+}
+
+function emitTrust(userId: string, verified: boolean, gen: number): void {
+  if (gen !== generation || cancelRequested || !trustHandler) return
+  trustHandler(userId, verified)
 }
 
 /** Initiates a SAS verification of `userId` over the direct chat `roomId`. */
@@ -82,44 +106,34 @@ export async function beginUserVerification(userId: string, roomId: string): Pro
 
 /** Runs a SAS verification against `request`, pushing UI sessions through the handler. */
 export async function runSasVerification(request: VerificationRequest, roomId?: string): Promise<void> {
+  cancelRequested = false
   const otherUserId: string = request.otherUserId || ''
+  const gen = generation
   try {
-    sessionHandler?.({ otherUserId, roomId, phase: 'emoji', emojis: [] })
+    emit({ otherUserId, roomId, phase: 'emoji', emojis: [] }, gen)
 
     if (!request.accepting && (request.phase === VerificationPhase.Unsent || request.phase === VerificationPhase.Requested)) {
       await request.accept()
     }
     const verifier = await getSasVerifier(request)
+    if (cancelRequested || gen !== generation) return
 
     const onShowSas = (sas: ShowSasCallbacks): void => {
-      sessionHandler?.({
-        otherUserId,
-        roomId,
-        phase: 'emoji',
-        emojis: sas.sas.emoji ?? [],
-        callbacks: sas,
-      })
-    }
-    let cancelled = false
-    const onCancel = (): void => {
-      cancelled = true
-      sessionHandler?.({ otherUserId, roomId, phase: 'cancelled', emojis: [] })
+      emit({ otherUserId, roomId, phase: 'emoji', emojis: sas.sas.emoji ?? [], callbacks: sas }, gen)
     }
     verifier.on(VerifierEvent.ShowSas, onShowSas)
-    verifier.on(VerifierEvent.Cancel, onCancel)
     try {
       await verifier.verify()
-      sessionHandler?.({ otherUserId, roomId, phase: 'done', emojis: [] })
+      emit({ otherUserId, roomId, phase: 'done', emojis: [] }, gen)
     } catch {
-      // Some SDK paths reject verify() without a Cancel event (e.g. mismatched SAS).
-      if (!cancelled) sessionHandler?.({ otherUserId, roomId, phase: 'cancelled', emojis: [] })
+      // Some SDK paths reject verify() without a user-facing step (e.g. mismatched SAS).
+      emit({ otherUserId, roomId, phase: 'cancelled', emojis: [] }, gen)
     } finally {
       verifier.off(VerifierEvent.ShowSas, onShowSas)
-      verifier.off(VerifierEvent.Cancel, onCancel)
     }
   } catch {
     // Request could not be accepted or started (e.g. already cancelled): report dead state.
-    sessionHandler?.({ otherUserId, roomId, phase: 'cancelled', emojis: [] })
+    emit({ otherUserId, roomId, phase: 'cancelled', emojis: [] }, gen)
   }
 }
 
@@ -159,24 +173,15 @@ async function getSasVerifier(request: VerificationRequest): Promise<Verifier> {
 /** Caches the cross-signing trust level of `userId` and pushes it to the trust handler. */
 export async function ensureUserTrust(userId: string): Promise<boolean> {
   if (!crypto) return false
+  const gen = generation
   try {
     const status = await crypto.getUserVerificationStatus(userId)
     const verified = status.isCrossSigningVerified()
-    trustHandler?.(userId, verified)
+    emitTrust(userId, verified, gen)
     return verified
   } catch {
     return false
   }
-}
-
-/** QR methods present on the runtime RustVerificationRequest but absent from the crypto-api type. */
-interface RustRequestQrOverlay {
-  generateQRCode(): Promise<Uint8ClampedArray | undefined>
-  scanQRCode(bytes: Uint8ClampedArray): Promise<Verifier>
-}
-
-function textToBytes(text: string): Uint8ClampedArray {
-  return new Uint8ClampedArray(new TextEncoder().encode(text))
 }
 
 /** Waits until the request exposes a verifier (show side: after the other side reciprocates). */
@@ -204,41 +209,40 @@ async function waitForQrVerifier(request: VerificationRequest): Promise<Verifier
  */
 export async function beginQrShow(userId: string, roomId: string): Promise<void> {
   if (!crypto) return
+  cancelRequested = false
+  const gen = generation
   const request = await crypto.requestVerificationDM(userId, roomId)
-  const session: VerificationSessionUi = { otherUserId: userId, roomId, phase: 'qr', emojis: [], callbacks: undefined }
+  const session: VerificationSessionUi = { otherUserId: userId, roomId, phase: 'qr', emojis: [] }
   try {
-    const rustReq = request as unknown as RustRequestQrOverlay
-    const bytes = await rustReq.generateQRCode()
+    const bytes = await request.generateQRCode()
     if (!bytes) {
-      sessionHandler?.({ ...session, phase: 'cancelled' })
+      emit({ ...session, phase: 'cancelled' }, gen)
       return
     }
-    sessionHandler?.({ ...session, qrText: new TextDecoder('utf-8').decode(bytes) })
+    emit({ ...session, qrText: new TextDecoder('utf-8').decode(bytes) }, gen)
 
     const verifier = await waitForQrVerifier(request)
-    if (!verifier) return // cancelled via request events; session already closed
-
-    let userCancelled = false
-    const onReciprocate = (qr: ShowQrCodeCallbacks): void => {
-      sessionHandler?.({ ...session, qrText: session.qrText, callbacks: qr })
+    if (!verifier) {
+      // Remote cancelled/closed before reciprocating: close the pending dialog.
+      emit({ ...session, phase: 'cancelled' }, gen)
+      return
     }
-    const onCancel = (): void => {
-      userCancelled = true
-      sessionHandler?.({ ...session, phase: 'cancelled' })
+    if (cancelRequested || gen !== generation) return
+
+    const onReciprocate = (qr: ShowQrCodeCallbacks): void => {
+      emit({ ...session, callbacks: qr }, gen)
     }
     verifier.on(VerifierEvent.ShowReciprocateQr, onReciprocate)
-    verifier.on(VerifierEvent.Cancel, onCancel)
     try {
       await verifier.verify()
-      sessionHandler?.({ ...session, phase: 'done' })
+      emit({ ...session, phase: 'done' }, gen)
     } catch {
-      if (!userCancelled) sessionHandler?.({ ...session, phase: 'cancelled' })
+      emit({ ...session, phase: 'cancelled' }, gen)
     } finally {
       verifier.off(VerifierEvent.ShowReciprocateQr, onReciprocate)
-      verifier.off(VerifierEvent.Cancel, onCancel)
     }
   } catch {
-    sessionHandler?.({ ...session, phase: 'cancelled' })
+    emit({ ...session, phase: 'cancelled' }, gen)
   }
 }
 
@@ -248,28 +252,23 @@ export async function beginQrShow(userId: string, roomId: string): Promise<void>
  */
 export async function scanQrVerification(userId: string, roomId: string, qrText: string): Promise<void> {
   if (!crypto) return
+  cancelRequested = false
+  const gen = generation
   const request = await crypto.requestVerificationDM(userId, roomId)
-  const session: VerificationSessionUi = { otherUserId: userId, roomId, phase: 'qr', emojis: [], callbacks: undefined }
+  const session: VerificationSessionUi = { otherUserId: userId, roomId, phase: 'qr', emojis: [] }
   try {
-    const rustReq = request as unknown as RustRequestQrOverlay
-    sessionHandler?.({ ...session, qrText })
-    const verifier = await rustReq.scanQRCode(textToBytes(qrText))
+    emit({ ...session, qrText }, gen)
+    const verifier = await request.scanQRCode(new Uint8ClampedArray(new TextEncoder().encode(qrText)))
+    if (cancelRequested || gen !== generation) return
 
-    let userCancelled = false
-    const onCancel = (): void => {
-      userCancelled = true
-      sessionHandler?.({ ...session, phase: 'cancelled' })
-    }
-    verifier.on(VerifierEvent.Cancel, onCancel)
+    // The SDK only emits via verify(); we simply await the show side's confirm.
     try {
       await verifier.verify()
-      sessionHandler?.({ ...session, phase: 'done' })
+      emit({ ...session, phase: 'done' }, gen)
     } catch {
-      if (!userCancelled) sessionHandler?.({ ...session, phase: 'cancelled' })
-    } finally {
-      verifier.off(VerifierEvent.Cancel, onCancel)
+      emit({ ...session, phase: 'cancelled' }, gen)
     }
   } catch {
-    sessionHandler?.({ ...session, phase: 'cancelled' })
+    emit({ ...session, phase: 'cancelled' }, gen)
   }
 }

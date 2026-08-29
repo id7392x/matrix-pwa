@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { beginQrShow, beginUserVerification, ensureUserTrust, scanQrVerification } from '$crypto/verification'
+import { beginQrShow, beginUserVerification, cancelActiveVerification, ensureUserTrust, scanQrVerification } from '$crypto/verification'
 import type { VerificationSessionUi } from '$crypto/verification'
 import type { ShowQrCodeCallbacks, ShowSasCallbacks } from 'matrix-js-sdk/lib/crypto-api/verification'
 import { verificationStore } from '$stores/verificationStore.svelte'
@@ -13,6 +13,7 @@ const handlers = vi.hoisted(() => ({
 vi.mock('$crypto/verification', () => ({
   beginQrShow: vi.fn(),
   beginUserVerification: vi.fn(),
+  cancelActiveVerification: vi.fn(),
   ensureUserTrust: vi.fn(async (u: string) => {
     handlers.onTrust?.(u, true)
     return true
@@ -43,6 +44,10 @@ function emitSession(session: VerificationSessionUi): void {
 describe('verificationStore', () => {
   beforeEach(() => {
     verificationStore.reset()
+    vi.mocked(beginQrShow).mockClear()
+    vi.mocked(beginUserVerification).mockClear()
+    vi.mocked(scanQrVerification).mockClear()
+    vi.mocked(cancelActiveVerification).mockClear()
   })
 
   it('registers module handlers on load', () => {
@@ -165,11 +170,29 @@ describe('verificationStore', () => {
     expect(verificationStore.session?.phase).toBe('qr')
   })
 
-  it('cancelVerification cancels a QR session and closes the dialog', () => {
+  it('cancelVerification cancels a QR session, closes the dialog and aborts the module flow', () => {
     const callbacks: ShowQrCodeCallbacks = { confirm: vi.fn(), cancel: vi.fn() }
     emitSession({ otherUserId: bob, phase: 'qr', emojis: [], qrText: 'M2V2:…', callbacks })
     verificationStore.cancelVerification()
     expect(callbacks.cancel).toHaveBeenCalledTimes(1)
+    expect(cancelActiveVerification).toHaveBeenCalledTimes(1)
     expect(verificationStore.session).toBeNull()
+  })
+
+  it('ignores a second start request while one flow is in flight', () => {
+    verificationStore.verifyUser(bob, roomId)
+    verificationStore.startQrShow(bob, roomId)
+
+    expect(beginUserVerification).toHaveBeenCalledTimes(1)
+    expect(beginQrShow).not.toHaveBeenCalled()
+  })
+
+  it('allows a new start after the dialog is closed', () => {
+    emitSession({ otherUserId: bob, phase: 'done', emojis: [] })
+    verificationStore.closeDialog()
+
+    verificationStore.verifyUser(bob, roomId)
+
+    expect(beginUserVerification).toHaveBeenCalledWith(bob, roomId)
   })
 })

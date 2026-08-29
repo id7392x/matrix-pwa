@@ -3,12 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MatrixClient } from 'matrix-js-sdk'
 import { CryptoEvent } from 'matrix-js-sdk/lib/crypto-api'
 import type { ShowQrCodeCallbacks, ShowSasCallbacks, VerificationRequest } from 'matrix-js-sdk/lib/crypto-api/verification'
-import { VerificationPhase, VerifierEvent } from 'matrix-js-sdk/lib/crypto-api/verification'
+import { VerificationPhase, VerificationRequestEvent, VerifierEvent } from 'matrix-js-sdk/lib/crypto-api/verification'
 
 import {
   attachVerification,
   beginQrShow,
   beginUserVerification,
+  cancelActiveVerification,
   detachVerification,
   ensureUserTrust,
   runSasVerification,
@@ -46,10 +47,6 @@ class FakeVerifier extends FakeEmitter {
 
   emitShowReciprocateQr(qr: ShowQrCodeCallbacks): void {
     this.emit(VerifierEvent.ShowReciprocateQr, qr)
-  }
-
-  emitCancel(): void {
-    this.emit(VerifierEvent.Cancel, new Error('cancelled'))
   }
 }
 
@@ -363,6 +360,80 @@ describe('verification', () => {
       await scanQrVerification(bob, roomId, QR_TEXT)
 
       expect(sessions).toHaveLength(0)
+    })
+
+    it('beginQrShow closes the pending session when the remote cancels before reciprocating', async () => {
+      const request = new FakeRequest(VerificationPhase.Requested)
+      // The request never gets a verifier: the remote cancels while the QR is displayed.
+      request.verifier = null
+      crypto.requestVerificationDM = vi.fn(async () => request)
+      attachVerification(mockClient(crypto))
+
+      const pending = beginQrShow(bob, roomId)
+      await vi.waitFor(() => {
+        expect(sessions.at(-1)?.qrText).toBe(QR_TEXT)
+      })
+      // The remote cancels: the request transitions to Cancelled with no verifier.
+      request.phase = VerificationPhase.Cancelled
+      request.emit(VerificationRequestEvent.Change)
+      await pending
+
+      expect(sessions.at(-1)?.phase).toBe('cancelled')
+    })
+
+    it('a late reciprocate does not resurrect a cancelled show flow', async () => {
+      const request = new FakeRequest(VerificationPhase.Requested)
+      const verifier = new FakeVerifier()
+      let resolveWait: () => void = () => {}
+      request.verifier = null
+      verifier.verify = vi.fn(() => new Promise<void>((resolve) => (resolveWait = resolve)))
+      // Simulate the verifier appearing later (after the user cancelled), as the SDK does on reciprocate.
+      crypto.requestVerificationDM = vi.fn(async () => {
+        Promise.resolve().then(() => {
+          request.verifier = verifier
+          request.emit(VerificationRequestEvent.Change)
+        })
+        return request
+      })
+      attachVerification(mockClient(crypto))
+
+      const pending = beginQrShow(bob, roomId)
+      await vi.waitFor(() => {
+        expect(sessions.at(-1)?.qrText).toBe(QR_TEXT)
+      })
+
+      const before = sessions.length
+      cancelActiveVerification()
+      // The verifier appears and reciprocates only after the user already cancelled.
+      verifier.emitShowReciprocateQr({ confirm: vi.fn(), cancel: vi.fn() })
+      resolveWait()
+      await pending
+
+      expect(sessions.length).toBe(before)
+    })
+
+    it('in-flight emissions are dropped after detach (no stale emit into a new session)', async () => {
+      const request = new FakeRequest(VerificationPhase.Requested)
+      const verifier = new FakeVerifier()
+      let resolveVerify: () => void = () => {}
+      verifier.verify = vi.fn(() => new Promise<void>((resolve) => (resolveVerify = resolve)))
+      request.verifier = verifier
+      crypto.requestVerificationDM = vi.fn(async () => request)
+      attachVerification(mockClient(crypto))
+
+      const pending = beginQrShow(bob, roomId)
+      await vi.waitFor(() => {
+        expect(sessions.at(-1)?.qrText).toBe(QR_TEXT)
+      })
+
+      const before = sessions.length
+      detachVerification()
+      verifier.emitShowReciprocateQr({ confirm: vi.fn(), cancel: vi.fn() })
+      resolveVerify()
+      await pending
+
+      // Session 2 (the flow's 'qr' with callbacks) and 'done' must NOT be pushed after detach.
+      expect(sessions.length).toBe(before)
     })
   })
 })

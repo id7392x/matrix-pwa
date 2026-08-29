@@ -1,6 +1,7 @@
 import {
   beginQrShow,
   beginUserVerification,
+  cancelActiveVerification,
   ensureUserTrust,
   scanQrVerification,
   setVerificationHandlers,
@@ -26,19 +27,34 @@ class VerificationStore {
     return this.trust.get(userId) ?? false
   }
 
+  // The SDK supports one active verification flow per pair; ignore a second start request
+  // while one flow is in flight (prevents two competing requestVerificationDM calls).
+  private running = false
+
+  private start(next: () => void): void {
+    if (this.running) return
+    this.running = true
+    next()
+  }
+
+  /** Releases the single-flow guard once a session reaches a terminal phase. */
+  markTerminal(): void {
+    this.running = false
+  }
+
   /** Starts a SAS verification of `userId` inside the DM `roomId`. */
   verifyUser(userId: string, roomId: string): void {
-    void beginUserVerification(userId, roomId)
+    this.start(() => void beginUserVerification(userId, roomId))
   }
 
   /** Starts a verification in which the local user shows their QR code. */
   startQrShow(userId: string, roomId: string): void {
-    void beginQrShow(userId, roomId)
+    this.start(() => void beginQrShow(userId, roomId))
   }
 
   /** Starts a verification by feeding a QR code scanned off the other side. */
   scanQr(userId: string, roomId: string, qrText: string): void {
-    void scanQrVerification(userId, roomId, qrText)
+    this.start(() => void scanQrVerification(userId, roomId, qrText))
   }
 
   /** Loads `userId` cross-signing trust at most once per session. */
@@ -73,16 +89,20 @@ class VerificationStore {
     const s = this.session
     if (!s || (s.phase !== 'emoji' && s.phase !== 'qr')) return
     s.callbacks?.cancel()
+    cancelActiveVerification()
     this.session = null
+    this.running = false
   }
 
   closeDialog(): void {
     this.session = null
+    this.running = false
   }
 
   reset(): void {
     this.session = null
     this.trust = new Map()
+    this.running = false
   }
 }
 
@@ -91,6 +111,9 @@ export const verificationStore = new VerificationStore()
 setVerificationHandlers(
   (session) => {
     verificationStore.session = session
+    if (session.phase === 'done' || session.phase === 'cancelled' || session.phase === 'mismatch') {
+      verificationStore.markTerminal()
+    }
   },
   (userId, verified) => {
     verificationStore.trust.set(userId, verified)
