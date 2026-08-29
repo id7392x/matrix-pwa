@@ -5,8 +5,8 @@
 
 ## 1. Общее состояние репозитория
 
-- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, **HEAD: `40877fa`**, **запушено в `origin`** (`github.com/<repo-owner>/matrix-pwa`, **публичный**). ⚠️ **6 коммитов впереди `origin`: `0c38803`, `83996f4`, `c838e5b`, `c96e95f`, `61c23df`, `40877fa` (Слайс 5 хвост + docs-пассы) — пуш по явному подтверждению.** Все коммиты подписаны SSH (GitHub: Verified). История переписана: `id7392x` вычищен из .md файлов, author/committer fields сохранены. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
-- Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` **252/252**, `pnpm run lint` чисто. Pre-commit хук (simple-git-hooks) прогоняется автоматически на каждом коммите.
+- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, **HEAD: `95d5e94`**, **запушено в `origin`** (`github.com/<repo-owner>/matrix-pwa`, **публичный**). ⚠️ **11 коммитов впереди `origin`: `83996f4`, `0c38803`, `c838e5b`, `c96e95f`, `61c23df`, `40877fa`, `2bce95d`, `248c838`, `54371b6`, `26fa419`, `95d5e94` (Слайс 5 хвост + docs-пассы + UTD-backup фиксы) — пуш по явному подтверждению.** Все коммиты подписаны SSH (GitHub: Verified). История переписана: `id7392x` вычищен из .md файлов, author/committer fields сохранены. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
+- Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` **266/266**, `pnpm run lint` чисто. Pre-commit хук (simple-git-hooks) прогоняется автоматически на каждом коммите.
 - **GitHub Ruleset «Protect main»**: люди — только через PR (1 approval + статус-чек `gate` + signed commits); `<repo-owner>` — bypass на прямой push. ⚠️ Проверить вручную во вкладке Bypass: там должен быть ТОЛЬКО `<repo-owner>`.
 - **GitHub Actions** (`acd2798`): гейт `pnpm check/test/lint` на push и pull_request.
 - **Push-политика по трекам**: `<repo-owner>` — только локальные коммиты, пуш в `origin` после явного словесного подтверждения; контрибьюторы — только свои feature-ветки (подробности — `COMMITS.md`, `CONTRIBUTING.md`).
@@ -82,9 +82,10 @@
 
 **Выполнено (сводка):** слайсы 1–5, ревью-батч (`2dd3072`–`409ea1d`), sync race fix (`ea53bf3`), e2ee echo dedup (`2ce4902`), OIDC SSO (`a8987b8`–`275b946`) — запушены; **Слайс 5 (5.1a–5.1d) + фиксы ревью + docs-пассы — НЕ запушены** (6 локальных коммитов впереди `origin`).
 
-**Слайс 5 (E2EE) — ЗАВЕРШЁН кодом и доками** (локально, 6 коммитов ждут пуша):
+**Слайс 5 (E2EE) — ЗАВЕРШЁН кодом и доками** (локально, коммиты ждут пуша):
 - Коммиты: `da0aa39` (5.1a bootstrap+recovery), `5411c17` (5.1b SAS+trust), `0c38803` (5.1c QR show/scan), `83996f4`/`c838e5b` (docs/05-UI-E2EE + roadmap/handoff), `c96e95f` (фиксы ревью #1–#7 + убран каст + dead Cancel), `61c23df` (доки QR-гардов), `40877fa` (cross-doc consistency pass + §11.1).
-- Итого **252 теста** (20 файлов), гейт зелёный; подпись SSH.
+- Фиксы UTD/key-backup: `248c838` (auto-restore доверенного server-бэкапа при логине), `54371b6` (reset cross-signing + 4S при recovery setup — убирает «Content is not encrypted!»), `26fa419` (leave-комнаты), `95d5e94` (restore нетрастед-бэкапа: загрузка backup-ключей из 4S + ре-триггер после ввода recovery key — закрывает «This message was sent before this device logged in, and key backup is not working»).
+- Итого **266 тестов** (20 файлов), гейт зелёный; подпись SSH.
 - Ключевые файлы: `src/crypto/security.ts`, `src/crypto/verification.ts` (SAS `runSasVerification`, QR `beginQrShow`/`scanQrVerification`/`cancelActiveVerification`), `src/stores/verificationStore.svelte.ts`, `src/components/crypto/VerificationDialog.svelte`, `src/components/Timeline.svelte`.
 - Гард против воскрешения/отмены: модульный `generation`+`cancelRequested` гейт в `emit()`; `VerifierEvent.Cancel` в SDK не эмитится — отмена = reject `verify()`.
 
