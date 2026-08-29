@@ -37,7 +37,7 @@
 - `getSecurityState(): Promise<SecurityState>` — `{ crossSigningReady, secretStorageReady, recoveryKeyInMemory }`.
 - `setupRecovery(): Promise<string>` — полный bootstrap: `createRecoveryKeyFromPassphrase()` → `bootstrapCrossSigning({ authUploadDeviceSigningKeys })` → `bootstrapSecretStorage({ createSecretStorageKey, setupNewKeyBackup: true })`; возвращает recovery key строкой.
 - `installRecoveryKey(recoveryKey: string): Promise<boolean>` — `decodeRecoveryKey` + кэш в RAM (provisional, keyId ещё неизвестен).
-- `unlockRecovery(recoveryKey: string, keys): Promise<RecoveryKeyMatch | null>` — decode + MAC-проверка против ключей аккаунта (см. §3.5) + кэш.
+- `unlockRecovery(recoveryKey: string, keys): Promise<RecoveryKeyMatch | null>` — decode + MAC-проверка против ключей аккаунта (см. §3.6) + кэш.
 - `makeCryptoCallbacks(): CryptoCallbacks` — `cacheSecretStorageKey` + `getSecretStorageKey` с цепочкой: `cachedKey` по `keyId` → `provisionalKey` по MAC-совпадению → `keyPrompt(keys)`.
 
 **Типы:** `SecurityState`, `RecoveryKeyMatch { keyId: string; privateKey: Uint8Array<ArrayBuffer> }`, `KeyPrompt = (keys) => Promise<RecoveryKeyMatch | null>`, `PasswordPrompt = () => Promise<string | null>`.
@@ -52,10 +52,13 @@ setPasswordPrompt(() => cryptoStore.requestPassword())
 
 Модуль интерактивной верификации (SAS и QR, 5.1b/5.1c). Через `setVerificationHandlers` публикует UI-сессии и trust-обновления.
 
-- `attachVerification(client: MatrixClient): void` / `detachVerification(): void` — подписка на события crypto (см. §3.1). Вызывается из `legacySync` рядом с `attachSecurity`.
+- `attachVerification(client: MatrixClient): void` / `detachVerification(): void` — подписка на события crypto (см. §3.1). Вызывается из `legacySync` рядом с `attachSecurity`. `detachVerification` инкрементит `generation`, `attachVerification` сбрасывает его и токен отмены.
 - `setVerificationHandlers(onSession: SessionHandler | null, onTrust: TrustHandler | null): void` — UI регистрирует два колбэка.
 - `runSasVerification(request: VerificationRequest, roomId?: string): Promise<void>` — машина состояний SAS: pending → accept (если `phase` в `Unsent|Requested`) → `startVerification('m.sas.v1')` → show_sas/confirm → done; отмена → cancelled.
 - `beginUserVerification(userId: string, roomId: string): Promise<void>` — CTA из DM: `crypto.requestVerificationDM(userId, roomId)` + `runSasVerification`.
+- `beginQrShow(userId: string, roomId: string): Promise<void>` — show-сторона QR (детали §3.4).
+- `scanQrVerification(userId: string, roomId: string, qrText: string): Promise<void>` — scan-сторона QR (детали §3.4).
+- `cancelActiveVerification(): void` — поднимает токен отмены: все in-flight эмиссии из текущего флоу гасятся (см. §3.5), диалог не воскресает.
 - `ensureUserTrust(userId: string): Promise<boolean>` — `getUserVerificationStatus(userId).isCrossSigningVerified()` + push в trust-хендлер; при отсутствии crypto — `false`.
 
 **UI-сессия:**
@@ -63,13 +66,14 @@ setPasswordPrompt(() => cryptoStore.requestPassword())
 interface VerificationSessionUi {
   otherUserId: string
   roomId?: string
-  phase: 'emoji' | 'done' | 'cancelled' | 'mismatch'   // какую UI-фазу показывать
-  emojis: EmojiMapping[]                                // [emoji, name][] для SAS
-  callbacks?: ShowSasCallbacks                          // confirm/mismatch/cancel
+  phase: 'emoji' | 'qr' | 'done' | 'cancelled' | 'mismatch'  // какую UI-фазу показывать
+  emojis: EmojiMapping[]                                      // [emoji, name][] для SAS
+  qrText?: string                                             // содержимое QR (`M2V2:...`) для show
+  callbacks?: ShowSasCallbacks | ShowQrCodeCallbacks          // confirm/mismatch/cancel (SAS) | confirm/cancel (QR)
 }
 ```
 
-Состояния сопоставляются с UI: `emoji` — показ эмодзи + кнопки; `done` — «Подтверждено»; `cancelled`/`mismatch` — диалог скрыть (или toast).
+Состояния сопоставляются с UI: `emoji` — показ эмодзи + кнопки; `qr` — QR show/scan; `done` — «Подтверждено»; `cancelled`/`mismatch` — диалог скрыть (или toast).
 
 ### 2.3 `$stores/cryptoStore.svelte.ts`
 
@@ -85,9 +89,10 @@ interface VerificationSessionUi {
 Состояние верификации и доверия:
 
 - `session: VerificationSessionUi | null`, `trust: Map<userId, boolean>`.
-- Derived: `dialogVisible = session.phase ∈ {emoji, done}`.
-- Методы: `isTrusted(userId)`, `verifyUser(userId, roomId)`, `ensureTrust(userId)` (dedupe через `Map.has`), `confirmSas()`, `mismatchSas()`, `cancelVerification()`, `closeDialog()`, `reset()`.
-- Регистрирует обработчики модуля при загрузке: сессия → `session`, доверие → `trust.set`.
+- Derived: `dialogVisible = session.phase ∈ {emoji, qr, done}`.
+- Методы: `isTrusted(userId)`, `verifyUser(userId, roomId)`, `startQrShow(userId, roomId)`, `scanQr(userId, roomId, qrText)`, `ensureTrust(userId)` (dedupe через `Map.has`), `confirmSas()`, `mismatchSas()`, `confirmQr()`, `cancelVerification()`, `closeDialog()`, `reset()`.
+- `running`-флаг: `verifyUser`/`startQrShow`/`scanQr` игнорируют повторный старт, пока флоу активен (SDK: один флоу на пару); `cancelVerification`/`closeDialog`/`reset` и терминальные фазы снимают его.
+- `cancelVerification` вызывает `cancelActiveVerification()` (модуль гасит in-flight эмиссию) + `callbacks.cancel()` при наличии.
 
 ### 2.5 Компоненты и проводка
 
@@ -166,31 +171,29 @@ UI-поведение: при `ShowSas` показать `sas.emoji` (7 штук
 
 API модуля `src/crypto/verification.ts`: `beginQrShow(userId, roomId)` — показать свой QR (сессии обеих сторон по `requestVerificationDM`), `scanQrVerification(userId, roomId, qrText)` — отсканировать QR собеседника (строка из jsQR). Проигрывают в те же `VerificationSessionUi` с `phase: 'qr'`.
 
-Методы живут на runtime-классе `RustVerificationRequest` (тип — только каст, в `VerificationRequest` их нет):
-
-```ts
-interface RustRequestQrOverlay {
-  generateQRCode(): Promise<Uint8ClampedArray | undefined>  // data-байты QR-строки для показа
-  scanQRCode(uint8Array: Uint8ClampedArray): Promise<Verifier> // принять отсканированную QR-строку
-}
-const rustReq = request as unknown as RustRequestQrOverlay
-```
+`generateQRCode(): Promise<Uint8ClampedArray | undefined>` и `scanQRCode(bytes: Uint8ClampedArray): Promise<Verifier>` объявлены в публичном типе `VerificationRequest` (`lib/crypto-api/verification.d.ts`, строки 117/137) — каст больше не нужен, вызываются напрямую.
 
 **Показ QR (show) — `beginQrShow`:**
 1. `request = await crypto.requestVerificationDM(userId, roomId)` (или `requestDeviceVerification`).
-2. `bytes = await rustReq.generateQRCode()` → декодировать в строку (UTF-8) → продюснуть `VerificationSessionUi { phase: 'qr', qrText }`; рендер — `uqr` (`renderSVG`) в светлой подложке.
-3. Ждать смены request → появится `verifier` → подписаться на `VerifierEvent.ShowReciprocateQr` → `ShowQrCodeCallbacks { confirm(): void; cancel(): void }` (другая сторона отсканировала и подтвердила) → вызвать `confirm()`, `verifier.verify()` резолвится.
-4. Без байтов (`generateQRCode` → `undefined`) или при ошибке — `phase: 'cancelled'`.
+2. `bytes = await request.generateQRCode()` → декодировать в строку (UTF-8) → продюснуть `VerificationSessionUi { phase: 'qr', qrText }`; рендер — `uqr` (`renderSVG`) в светлой подложке.
+3. Ждать смены request (появление verifier) → подписаться на `VerifierEvent.ShowReciprocateQr` → `ShowQrCodeCallbacks { confirm(): void; cancel(): void }` (другая сторона отсканировала и подтвердила) → вызвать `confirm()`, `verifier.verify()` резолвится.
+4. Без байтов (`generateQRCode` → `undefined`), при ошибке, или если request ушёл в `Cancelled` до скана (verifier так и не появился) — `phase: 'cancelled'` (иначе диалог зависнет на pending).
 
 **Сканирование (scan) — `scanQrVerification`:**
-1. `requestVerificationDM` → `verifier = await rustReq.scanQRCode(bytes)` (байты строки, декодированной jsQR с камеры).
+1. `requestVerificationDM` → `verifier = await request.scanQRCode(bytes)` (байты строки, декодированной jsQR с камеры).
 2. `await verifier.verify()` — ожидание, пока шоу-сторона подтвердит reciprocate.
 
 **Legacy-заглушка:** `getQRCodeBytes()` в rust crypto бросает ошибку («use generateQRCode() instead») — не использовать.
 
+**Отмена и защита от воскрешения:** у SDK нет события отмены (см. §3.8) — модуль держит `cancelRequested`-токен (поднимается `cancelActiveVerification()` при клике Cancel) и `generation`-счётчик (инкремент на `detachVerification`). Все эмиссии идут через `emit()`: гейт `gen === generation && !cancelRequested` гасит late-эмиссию из уже отменённого/закрытого флоу — диалог не воскресает после Cancel/логаута. Стор держит `running`-флаг: второй `requestVerificationDM` на ту же пару игнорируется, пока флоу активен.
+
 Зависимости (установлены в 5.1c): `jsQR` (декод с камеры) + `uqr` (рендер SVG, встроенные типы, ноль зависимостей). Изначально планировалась `qrcode`+`@types/qrcode`, но она тащит `@types/node` и ломает глобальные типы (gotcha из HANDOFF) — не возвращать.
 
-### 3.5 Recovery key / SSSS
+### 3.5 Отмена: у rust crypto нет события Cancel
+
+В `rust-crypto/verification.js` эмитятся только `ShowSas` и `ShowReciprocateQr`. `VerifierEvent.Cancel` упомянут лишь в doc-комменте (строка 486) и никогда не выбрасывается. Отмена всегда приходит как **reject `verify()`** (`completionDeferred`) → в `runSasVerification`/`beginQrShow`/`scanQrVerification` ловится в `catch` → `phase: 'cancelled'`. Поэтому `verifier.on(VerifierEvent.Cancel, ...)` — мёртвый код, не добавлять.
+
+### 3.6 Recovery key / SSSS
 
 - `decodeRecoveryKey(str) / encodeRecoveryKey(bytes)` из `matrix-js-sdk/lib/crypto-api/recovery-key`; `decodeRecoveryKey` **бросает** на мусоре (parity/prefix/length) → всегда try/catch.
 - Проверка соответствия ключа аккаунту — **MAC-проверка по spec `m.secret_storage.v1.aes-hmac-sha2`** (реализована в `security.verifySecretStorageKey`): HKDF-SHA-256 (salt = 32×0, info = "") → 64 байта → AES-CTR-256 над 32 нулями → HMAC-SHA-256 → сравнить с `desc.mac`. Никакого вычисления `keyId` из ключа делать не нужно.
@@ -198,7 +201,7 @@ const rustReq = request as unknown as RustRequestQrOverlay
 - `bootstrapCrossSigning({ authUploadDeviceSigningKeys })` + `bootstrapSecretStorage({ createSecretStorageKey, setupNewKeyBackup: true })` — после этого `recoveryKeyInMemory = true` (ключ в RAM).
 - `getSecretStorageKey({ keys })` — запрос ключа SDK; ответ UI-провайдера `[keyId, privateKey] | null`.
 
-### 3.6 Методы CryptoApi для UI
+### 3.7 Методы CryptoApi для UI
 
 | Метод | Назначение |
 |---|---|
@@ -213,10 +216,10 @@ const rustReq = request as unknown as RustRequestQrOverlay
 
 `UserVerificationStatus` (`index.d.ts`): `known`, `needsUserApproval`, `isVerified()`, `isCrossSigningVerified()`, `wasCrossSigningVerified()`. Семантика флагов описана в §1 (TOFU / needsUserApproval).
 
-### 3.7 Ограничения и касты (коротко)
+### 3.8 Ограничения и касты (коротко)
 
 - `CryptoApi` не эмиттер → каст `as unknown as CryptoEventSink`.
-- `startVerification` только `m.sas.v1` → QR через `generateQRCode`/`scanQRCode` (каст).
+- `startVerification` только `m.sas.v1` → QR через `generateQRCode`/`scanQRCode` (эти методы есть в публичном типе `VerificationRequest`, каст не нужен).
 - `cryptoDatabasePrefix` (не `storePrefix`): `matrix-js-sdk:crypto:${userId}:${deviceId}`.
 - `cryptoCallbacks` обязан передаваться в `createClient` до создания клиента.
 - Москов в тестах: `as unknown as CryptoApi`, паттерн в `security.test.ts` / `verification.test.ts`; WASM в Vitest не грузится.
@@ -273,8 +276,9 @@ const rustReq = request as unknown as RustRequestQrOverlay
 
 ### 5.2 Сканирование (scan)
 
-- Разрешение камеры: запросить до показа; при отказе — понятная ошибка + ссылка в настройки (по возможности) + кнопка «Показать свой QR» (переключение режима).
-- Живой видеофид + наложенная рамка; jsQR по кадрам (requestAnimationFrame + blocked-значение), ловим стабильный кадр → не дёргать UI на «мерцающих» декодах.
+- Разрешение камеры: запросить по клику «Start camera»; повторный клик не должен открывать второй поток (`if (scanning) return`).
+- Живой видеофид + наложенная рамка; jsQR по кадрам (requestAnimationFrame), после стабильного декода — `stopScan()`, затем `scanQr(bytes)`.
+- Камера (track'и + rAF) гасится при уходе из scan-пейна, при `phase !== 'qr'` (в т.ч. `done`) и при закрытии диалога — иначе индикатор камеры и CPU продолжают работать.
 - После декода → `scanQRCode(bytes)` → ожидание подтверждения второй стороны → done.
 
 ### 5.3 Ошибки QR
@@ -288,7 +292,7 @@ const rustReq = request as unknown as RustRequestQrOverlay
 
 ### 5.4 Кнопка-переключатель
 
-Диалог должен уметь переключаться show ↔ scan (пользователь на двух устройствах может не знать, кому что показывать). Не отправлять два QR одновременно (двусмысленность — SDK такого не умеет; один активный флоу на пару).
+Диалог умеет переключаться show ↔ scan. **Один активный флоу на пару:** стор с `running`-флагом игнорирует повторный `requestVerificationDM` (SDK второго не позволяет). В scan-флоу show-пейн НЕ рендерит QR (отсканированный текст принадлежит другой стороне) — вместо картинки подсказка «Ask {other} to show yours». В show-флоу ре-рендер локально сгенерированного QR.
 
 ---
 
