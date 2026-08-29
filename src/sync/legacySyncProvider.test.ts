@@ -218,7 +218,7 @@ describe('LegacySyncProvider', () => {
     })
   })
 
-  it('ignores rooms the user has left', async () => {
+  it('emits left rooms under rooms.leave so they can be removed locally', async () => {
     const client = await setup()
     const joined = makeRoom(client, '!joined:example.org')
     await client.store.storeRoom(joined)
@@ -232,6 +232,7 @@ describe('LegacySyncProvider', () => {
 
     const sync = listener.mock.calls[0][0] as SyncResponse
     expect(Object.keys(sync.rooms.join)).toEqual(['!joined:example.org'])
+    expect(Object.keys(sync.rooms.leave ?? {})).toEqual(['!left:example.org'])
   })
 
   it('emits the full room timeline again on every sync (dedupe happens downstream)', async () => {

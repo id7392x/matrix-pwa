@@ -431,4 +431,19 @@ describe('SyncOrchestrator', () => {
     expect(store.events[0].errorText).toBeUndefined()
     expect(store.events[0].decryptionError).toBe('Unable to decrypt: keys not found')
   })
+
+  it('removes a left room and its events from the local db', async () => {
+    // Seed a joined room + event first, then the same room appears as left.
+    const { orchestrator } = setup()
+    await orchestrator.handleSync(sync())
+    expect(await db.rooms.get(`${alice}:${roomId}`)).toBeDefined()
+    expect(await db.events.get([alice, roomId, '$1'])).toBeDefined()
+
+    await orchestrator.handleSync(
+      sync({ rooms: { join: {}, leave: { [roomId]: {} } } }),
+    )
+
+    expect(await db.rooms.get(`${alice}:${roomId}`)).toBeUndefined()
+    expect(await db.events.get([alice, roomId, '$1'])).toBeUndefined()
+  })
 })

@@ -1,3 +1,4 @@
+import Dexie from 'dexie'
 import { db, type EventModel, type RoomModel } from '$storage/db'
 import type { BatchedStoreManager } from '$stores/batchedStore.svelte'
 import { toEventDto, type EventDto } from '$types/dto'
@@ -46,7 +47,19 @@ export class SyncOrchestrator {
         }
       }
     }
+    // Rooms the user left/forgot elsewhere are dropped locally along with their events.
+    for (const roomId of Object.keys(sync.rooms.leave ?? {})) {
+      await this.removeRoom(roomId)
+    }
     this.store.pushEvents(dtos)
+  }
+
+  private async removeRoom(roomId: string): Promise<void> {
+    await db.events
+      .where('[userId+roomId+eventId]')
+      .between([this.userId, roomId, Dexie.minKey], [this.userId, roomId, Dexie.maxKey])
+      .delete()
+    await db.rooms.delete(`${this.userId}:${roomId}`)
   }
 
   private async upsertRoom(roomId: string, room: SyncJoinedRoom): Promise<void> {

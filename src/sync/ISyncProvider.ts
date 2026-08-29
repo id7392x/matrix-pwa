@@ -29,6 +29,8 @@ export interface SyncResponse {
   next_batch: string
   rooms: {
     join: Record<string, SyncJoinedRoom>
+    /** Rooms the local user has just left/forgot; the orchestrator removes them locally. */
+    leave?: Record<string, unknown>
   }
 }
 

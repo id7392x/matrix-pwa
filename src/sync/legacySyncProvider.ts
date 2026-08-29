@@ -82,12 +82,16 @@ export class LegacySyncProvider implements ISyncProvider {
 
     const directRooms = directRoomIds(this.client)
     const join: Record<string, SyncJoinedRoom> = {}
+    const leave: Record<string, unknown> = {}
     for (const room of this.client.getRooms()) {
-      if (room.getMyMembership() !== KnownMembership.Join) continue
-      join[room.roomId] = toSyncJoinedRoom(room, directRooms.has(room.roomId))
+      if (room.getMyMembership() === KnownMembership.Join) {
+        join[room.roomId] = toSyncJoinedRoom(room, directRooms.has(room.roomId))
+      } else if (room.getMyMembership() === KnownMembership.Leave) {
+        leave[room.roomId] = {}
+      }
     }
 
-    const sync: SyncResponse = { next_batch: data.nextSyncToken, rooms: { join } }
+    const sync: SyncResponse = { next_batch: data.nextSyncToken, rooms: { join, leave } }
     for (const listener of this.listeners) {
       void Promise.resolve(listener(sync)).catch((error) =>
         console.error('legacy sync handler failed', error),
