@@ -7,6 +7,7 @@ import type { SecretStorageKeyDescription } from 'matrix-js-sdk/lib/secret-stora
 
 import {
   attachSecurity,
+  autoRestoreBackup,
   detachSecurity,
   findMatchingKeyId,
   getSecurityState,
@@ -81,8 +82,14 @@ function mockCrypto(): CryptoApi {
       privateKeysCachedLocally: { masterKey: true, selfSigningKey: true, userSigningKey: true },
     }),
     getSecretStorageStatus: vi.fn().mockResolvedValue({ ready: true, defaultKeyId: 'k1', secretStorageKeyValidityMap: {} }),
+    checkKeyBackupAndEnable: vi.fn().mockResolvedValue(null),
+    isKeyBackupTrusted: vi.fn().mockResolvedValue({ trusted: true, matchesDecryptionKey: true }),
+    loadSessionBackupPrivateKeyFromSecretStorage: vi.fn().mockResolvedValue(undefined),
+    restoreKeyBackup: vi.fn().mockResolvedValue({ total: 3, imported: 3 }),
   } as unknown as CryptoApi
 }
+
+const backupInfo = { count: 3, etag: 'e1', version: 'v3' } as const
 
 function mockClient(crypto: CryptoApi): MatrixClient {
   return {
@@ -270,6 +277,51 @@ describe('security', () => {
     it('unlockRecovery returns null for garbage input', async () => {
       attachSecurity(mockClient(mockCrypto()))
       expect(await unlockRecovery('obviously broken', {})).toBeNull()
+    })
+  })
+
+  describe('autoRestoreBackup', () => {
+    it('returns no-backup when crypto is not attached', async () => {
+      expect(await autoRestoreBackup()).toBe('no-backup')
+    })
+
+    it('returns no-backup when there is no server backup', async () => {
+      const crypto = mockCrypto()
+      crypto.checkKeyBackupAndEnable = vi.fn().mockResolvedValue(null)
+      attachSecurity(mockClient(crypto))
+
+      expect(await autoRestoreBackup()).toBe('no-backup')
+      expect(crypto.restoreKeyBackup).not.toHaveBeenCalled()
+    })
+
+    it('returns untrusted and does not restore when the backup is not trusted', async () => {
+      const crypto = mockCrypto()
+      crypto.checkKeyBackupAndEnable = vi.fn().mockResolvedValue({ backupInfo, trustInfo: { trusted: false, matchesDecryptionKey: false } })
+      attachSecurity(mockClient(crypto))
+
+      expect(await autoRestoreBackup()).toBe('untrusted')
+      expect(crypto.loadSessionBackupPrivateKeyFromSecretStorage).not.toHaveBeenCalled()
+      expect(crypto.restoreKeyBackup).not.toHaveBeenCalled()
+    })
+
+    it('loads the backup private key and restores when the backup is trusted', async () => {
+      const crypto = mockCrypto()
+      crypto.checkKeyBackupAndEnable = vi.fn().mockResolvedValue({ backupInfo, trustInfo: { trusted: true, matchesDecryptionKey: true } })
+      attachSecurity(mockClient(crypto))
+
+      expect(await autoRestoreBackup()).toBe('restored')
+      expect(crypto.loadSessionBackupPrivateKeyFromSecretStorage).toHaveBeenCalledTimes(1)
+      expect(crypto.restoreKeyBackup).toHaveBeenCalledTimes(1)
+    })
+
+    it('returns failed when loading or restoring throws', async () => {
+      const crypto = mockCrypto()
+      crypto.checkKeyBackupAndEnable = vi.fn().mockResolvedValue({ backupInfo, trustInfo: { trusted: true, matchesDecryptionKey: true } })
+      crypto.loadSessionBackupPrivateKeyFromSecretStorage = vi.fn().mockRejectedValue(new Error('no 4s key'))
+      attachSecurity(mockClient(crypto))
+
+      expect(await autoRestoreBackup()).toBe('failed')
+      expect(crypto.restoreKeyBackup).not.toHaveBeenCalled()
     })
   })
 

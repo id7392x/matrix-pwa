@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SecretStorageKeyDescription } from 'matrix-js-sdk/lib/secret-storage'
 
 import {
+  autoRestoreBackup,
   getSecurityState,
   installRecoveryKey,
   setPasswordPrompt,
@@ -15,6 +16,7 @@ import { db } from '$storage/db'
 import { cryptoStore } from '$stores/cryptoStore.svelte'
 
 vi.mock('$crypto/security', () => ({
+  autoRestoreBackup: vi.fn(),
   getSecurityState: vi.fn(),
   installRecoveryKey: vi.fn(),
   setupRecovery: vi.fn(),
@@ -201,5 +203,37 @@ describe('cryptoStore', () => {
     cryptoStore.cancelPassword()
     await expect(pending).resolves.toBeNull()
     expect(cryptoStore.passwordVisible).toBe(false)
+  })
+
+  describe('autoRestore', () => {
+    it('restores and records backupRestored once', async () => {
+      vi.mocked(autoRestoreBackup).mockResolvedValue('restored')
+      await cryptoStore.init(alice)
+
+      await cryptoStore.autoRestore()
+
+      expect(autoRestoreBackup).toHaveBeenCalledTimes(1)
+      expect((await db.accounts.get(alice))?.backupRestored).toBe(true)
+    })
+
+    it('does not re-run restore once backupRestored is set', async () => {
+      vi.mocked(autoRestoreBackup).mockResolvedValue('restored')
+      await cryptoStore.init(alice)
+      await cryptoStore.autoRestore()
+
+      await cryptoStore.autoRestore()
+
+      expect(autoRestoreBackup).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not record backupRestored when there is no trusted backup', async () => {
+      vi.mocked(autoRestoreBackup).mockResolvedValue('no-backup')
+      await cryptoStore.init(alice)
+
+      await cryptoStore.autoRestore()
+
+      expect(autoRestoreBackup).toHaveBeenCalledTimes(1)
+      expect((await db.accounts.get(alice))?.backupRestored).toBeUndefined()
+    })
   })
 })

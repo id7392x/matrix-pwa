@@ -75,6 +75,29 @@ export async function setupRecovery(): Promise<string> {
   return encoded
 }
 
+export type RestoreStatus = 'restored' | 'no-backup' | 'untrusted' | 'failed'
+
+/**
+ * Detects the server-side key backup, and if it is trusted, loads its decryption
+ * key from 4S secret storage and restores all room keys into the local crypto store.
+ * Old (pre-login) encrypted history then re-decrypts via `Event.decrypted`.
+ * Never throws: cold-start must not break because a restore failed.
+ */
+export async function autoRestoreBackup(): Promise<RestoreStatus> {
+  if (!crypto) return 'no-backup'
+  try {
+    const check = await crypto.checkKeyBackupAndEnable()
+    if (!check) return 'no-backup'
+    if (!check.trustInfo.trusted || !check.trustInfo.matchesDecryptionKey) return 'untrusted'
+    // Pulls the backup decryption key from 4S; may trigger our recovery-key prompt.
+    await crypto.loadSessionBackupPrivateKeyFromSecretStorage()
+    await crypto.restoreKeyBackup({ progressCallback: () => {} })
+    return 'restored'
+  } catch {
+    return 'failed'
+  }
+}
+
 function makeUploadDeviceSigningKeys(): UIAuthCallback<void> {
   return async (makeRequest) => {
     try {

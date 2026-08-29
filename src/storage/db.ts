@@ -12,6 +12,7 @@ export interface AccountModel {
   lastSyncToken?: string
   refreshToken?: string // единственный токен в БД (Principles §3.2.1.1)
   securityBannerDismissed?: boolean
+  backupRestored?: boolean // запрещает повторный дорогой restore на этом устройстве
   // accessToken ЗАПРЕЩЕНО хранить в этой модели (только RAM/sessionStorage)
 }
 

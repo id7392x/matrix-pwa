@@ -1,6 +1,7 @@
 import type { SecretStorageKeyDescription } from 'matrix-js-sdk/lib/secret-storage'
 
 import {
+  autoRestoreBackup,
   getSecurityState,
   installRecoveryKey,
   setPasswordPrompt,
@@ -45,6 +46,21 @@ class CryptoStoreManager {
     this.crossSigningReady = state.crossSigningReady
     this.secretStorageReady = state.secretStorageReady
     this.recoveryKeyInMemory = state.recoveryKeyInMemory
+  }
+
+  /**
+   * Adopts + restores a trusted server key backup so pre-login history re-decrypts.
+   * Runs once per account (per device): the expensive `restoreKeyBackup` is skipped
+   * on later logins once this device has already restored. Never blocks or throws.
+   */
+  async autoRestore(): Promise<void> {
+    if (!this.userId) return
+    const row = await db.accounts.get(this.userId)
+    if (row?.backupRestored) return
+    const status = await autoRestoreBackup()
+    if (status === 'restored' && row) {
+      await db.accounts.put({ ...row, backupRestored: true })
+    }
   }
 
   async dismissBanner(): Promise<void> {

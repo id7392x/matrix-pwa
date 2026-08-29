@@ -95,6 +95,8 @@ export async function startLegacySync(
     attachSecurity(client)
     attachVerification(client)
     await cryptoStore.init(userId)
+    // Auto-restore a trusted server key backup (non-blocking) so pre-login history decrypts.
+    void cryptoStore.autoRestore()
 
     const pendingQueue = new PendingQueueService(undefined, client, batchedStore)
     registerQueue(pendingQueue)
