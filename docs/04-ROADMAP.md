@@ -33,12 +33,6 @@
 | Слайс 4 — Авторизация | (см. §7.5) | вход по паролю (`authService.login`, `m.login.password` + `refresh_token`), auto-refresh через `tokenRefreshFunction` (ротация), `restoreSession` из refresh-токена, `LoginScreen` с полем пароля, `pendingQueue.restore()` + GC доставленных сирот, logout по `Session.logged_out` |
 | Ревью-батч (фиксы по итогам ревью домена) | `2dd3072`, `6bcc411`, `aeb577e`, `409ea1d` | echo всегда promote (stale txnId не осиротит), `restore()` переотправляет pending, последний `lastEventTs` не затирается пустым timeline, per-event try/catch в `handleSync`, state-события не попадают в ленту, batchedStore upsert-by-id + отмена pending flush, история навигации чистится при logout, seed refresh-токена без deadlock, normalizeHomeserver (trim + trailing slash), единый `toEventDto`/`SyncState`, удаление мёртвого кода (`MockSyncProvider`, `GlassCard`, `switchAccount`, `getRefreshToken`, `roomStore.load/upsert/updateUnread`, `batchedStore.upsertByTxnId`) |
 
-### Текущее состояние проверок
-
-`pnpm run check` — 0 errors, `pnpm test` — 252/252, `pnpm run lint` — clean.
-
----
-
 ## 3. Очередь слайсов
 
 | # | Слайс | Зависимости | Владелец | Статус |
