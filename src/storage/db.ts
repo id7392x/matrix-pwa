@@ -11,6 +11,7 @@ export interface AccountModel {
   isPrimary: boolean
   lastSyncToken?: string
   refreshToken?: string // единственный токен в БД (Principles §3.2.1.1)
+  securityBannerDismissed?: boolean
   // accessToken ЗАПРЕЩЕНО хранить в этой модели (только RAM/sessionStorage)
 }
 

@@ -5,6 +5,8 @@ import { makeTokenRefreshFunction, normalizeHomeserver, refreshAccessTokens } fr
 import { db } from '$storage/db'
 import { batchedStore } from '$stores/batchedStore.svelte'
 import { createE2EE, type E2EEHandle } from '$crypto/e2ee'
+import { attachSecurity, detachSecurity, makeCryptoCallbacks } from '$crypto/security'
+import { cryptoStore } from '$stores/cryptoStore.svelte'
 import { LegacySyncProvider } from '$sync/legacySyncProvider'
 import { PendingQueueService, registerQueue, unregisterQueue } from '$sync/PendingQueueService'
 import { SyncOrchestrator } from '$sync/SyncOrchestrator'
@@ -70,6 +72,7 @@ export async function startLegacySync(
       accessToken: accessToken ?? undefined,
       refreshToken: refreshToken,
       tokenRefreshFunction: makeTokenRefreshFunction(userId, () => client),
+      cryptoCallbacks: makeCryptoCallbacks(),
     })
 
     client.on(HttpApiEvent.SessionLoggedOut, () => {
@@ -87,12 +90,18 @@ export async function startLegacySync(
       console.error('E2EE init failed, aborting sync (Cold Start invariant)', error)
       return { stop: noop }
     }
+    attachSecurity(client)
+    await cryptoStore.init(userId)
 
     const pendingQueue = new PendingQueueService(undefined, client, batchedStore)
     registerQueue(pendingQueue)
     await pendingQueue.restore(userId)
     await gcDeliveredPending(userId, pendingQueue)
-    if (cancelled) return { stop: noop }
+    if (cancelled) {
+      cryptoStore.reset()
+      detachSecurity()
+      return { stop: noop }
+    }
 
     const orchestrator = new SyncOrchestrator(userId, pendingQueue, batchedStore, e2ee)
     const provider = new LegacySyncProvider(client)
@@ -100,6 +109,8 @@ export async function startLegacySync(
     await provider.start()
     if (cancelled) {
       provider.stop()
+      cryptoStore.reset()
+      detachSecurity()
       return { stop: noop }
     }
 
@@ -108,6 +119,8 @@ export async function startLegacySync(
       unregisterQueue(pendingQueue)
       provider.stop()
       e2ee?.destroy()
+      cryptoStore.reset()
+      detachSecurity()
       activeSyncs.delete(userId)
     }
     activeSyncs.set(userId, stop)

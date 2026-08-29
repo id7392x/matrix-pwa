@@ -2,6 +2,9 @@
   import LoginScreen from '$components/LoginScreen.svelte'
   import RoomList from '$components/RoomList.svelte'
   import Timeline from '$components/Timeline.svelte'
+  import PasswordPromptDialog from '$components/crypto/PasswordPromptDialog.svelte'
+  import RecoveryKeyEntryDialog from '$components/crypto/RecoveryKeyEntryDialog.svelte'
+  import RecoverySetupDialog from '$components/crypto/RecoverySetupDialog.svelte'
   import { authStore } from '$stores/authStore.svelte'
   import { uiStore } from '$stores/uiStore.svelte'
 
@@ -37,3 +40,7 @@
     <Timeline roomId={screen.roomId} />
   </main>
 {/if}
+
+<RecoverySetupDialog />
+<RecoveryKeyEntryDialog />
+<PasswordPromptDialog />
