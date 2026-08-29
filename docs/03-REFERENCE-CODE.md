@@ -19,7 +19,7 @@ export interface AccountModel {
   deviceId: string;
   isPrimary: boolean;
   lastSyncToken?: string;
-  refreshToken?: string; // Слайс 4 «Авторизация»: единственный токен в БД (Principles §3.2.1.1)
+  refreshToken?: string; // Слайс 4 «Авторизация»: единственный токен в БД (Principles §3.2.2)
   // accessToken ЗАПРЕЩЕНО добавлять в эту модель (хранится только в RAM/sessionStorage)
 }
 
@@ -261,8 +261,8 @@ export async function initializeClientSession(
   const client = createClient({ baseUrl: homeserver, userId, deviceId, accessToken });
   
   // 2. Инициализация WASM Crypto с изолированным префиксом
-  const storePrefix = `matrix-js-sdk:crypto:${userId}:${deviceId}`;
-  await client.initRustCrypto({ storePrefix });
+  const cryptoDatabasePrefix = `matrix-js-sdk:crypto:${userId}:${deviceId}`;
+  await client.initRustCrypto({ cryptoDatabasePrefix });
   
   // 3. Регистрация Re-decryption слушателя до запуска Sync
   client.on('Event.decrypted', (event: unknown) => {

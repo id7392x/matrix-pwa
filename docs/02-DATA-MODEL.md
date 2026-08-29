@@ -24,7 +24,7 @@
 #### `accounts`
 - **PK:** `userId`
 - Важные поля: `homeserver`, `deviceId`, `isPrimary`, `lastSyncToken`, `refreshToken?`
-- `accessToken` **запрещено** хранить в этой таблице (только RAM/sessionStorage, см. Principles §3.2.1); `refreshToken` — разрешено (Principles §3.2.1.1, Слайс 4 «Авторизация»).
+- `accessToken` **запрещено** хранить в этой таблице (только RAM/sessionStorage, см. Principles §3.2.1); `refreshToken` — разрешено (Principles §3.2.2, Слайс 4 «Авторизация»).
 - Пароль никогда не хранится.
 
 #### `rooms`

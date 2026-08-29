@@ -35,7 +35,7 @@
 
 ### Текущее состояние проверок
 
-`pnpm run check` — 0 errors, `pnpm test` — 136/136, `pnpm run lint` — clean.
+`pnpm run check` — 0 errors, `pnpm test` — 252/252, `pnpm run lint` — clean.
 
 ---
 
@@ -47,12 +47,12 @@
 | 2 | `LegacySyncProvider` (реальный `/sync`) | слайс 1 | `<owner>` | **выполнен** |
 | 3 | Отправка сообщений (`/send` + dual-path) | слайсы 1–2 | `<owner>` | **выполнен** |
 | 4 | Авторизация: пароль + refresh-токен (+ SSO) | слайсы 1–3 | `<owner>` | **выполнен** (базовый пароль; SSO — подзадача) |
-| 5 | E2EE Cold Start + re-decryption | слайсы 2, 4 | `<owner>` | **следующий** |
-| 6 | История, пагинация, retention, медиа-кэш | слайсы 2–4 | свободен | запланирован |
+| 5 | E2EE Cold Start + re-decryption | слайсы 2, 4 | `<owner>` | **выполнен** |
+| 6 | История, пагинация, retention, медиа-кэш | слайсы 2–4 | свободен | **следующий** |
 | 7 | Multi-tab (Master/Slave) + Lazy-sync | слайсы 2, 4, 5 | свободен | запланирован |
 
 
-- **Порядок следующих шагов:** Слайс 5 (E2EE) → Слайс 6 (история/пагинация/медиа) → Дизайн-трек Д2 (адаптация под проект).
+- **Порядок следующих шагов:** Слайс 6 (история/пагинация/медиа, + DOMPurify/CSP до первого `{@html}`) → Слайс 7 (Multi-tab/Lazy-sync) → Дизайн-трек Д2 (адаптация под проект).
 
 ### 3.1. Дизайн-трек (горизонтальный, не вертикальный слайс)
 
@@ -127,9 +127,9 @@
 
 - Адаптер: `matrix-js-sdk` события (`MatrixEvent`, `Room`) → сырые JSON-типы `SyncResponse`/`SyncRawEvent`/`SyncJoinedRoom` из `src/sync/ISyncProvider.ts`. Маппинг реальных полей (`m.room.name` state-событий, `m.direct` accountData) — ответственность провайдера.
 - Зашифрованные события: `SyncOrchestrator` помечает `isEncrypted = raw.type === 'm.room.encrypted'` (контракт уже реализован); шифр-конверт `content` сохраняется как есть, дешифровка и замена конверта — Слайс 5.
-- `createClient` без crypto (crypto подключается в слайсе 4).
+- `createClient` без crypto (crypto подключается в слайсе 5).
 - Авторизация: токен из `AccountManager.getAccessToken` (RAM/sessionStorage), в БД не попадает.
-- Первый импорт `matrix-js-sdk` обязан проходить в Vitest (при необходимости — тестовый shim/`vi.mock`). WASM/vodozemac на этом слайсе не задействуется (`initRustCrypto` только в слайсе 4); Vite-воркеры заранее не конфигурируем.
+- Первый импорт `matrix-js-sdk` обязан проходить в Vitest (при необходимости — тестовый shim/`vi.mock`). WASM/vodozemac на этом слайсе не задействуется (`initRustCrypto` только в слайсе 5); Vite-воркеры заранее не конфигурируем.
 
 ### 5.3. TDD-контракт
 
@@ -207,7 +207,7 @@
 - `authService.ts`: `login(homeserver, userId, password)` через `client.loginRequest({ type: 'm.login.password', identifier: { type: 'm.id.user', user }, password, refresh_token: true })` (НЕ deprecated `loginWithPassword`); `makeTokenRefreshFunction(userId, () => client)` — `client.refreshToken` → `setTokens` (access → sessionStorage, refresh → accounts) → возвращает `{ accessToken, refreshToken, expiry }` для `TokenRefresher` SDK.
 - `startLegacySync(userId, onLoggedOut?)`: `createClient({ accessToken?, refreshToken, tokenRefreshFunction })`; refresh-токен в клиенте позволяет восстанавливать сессию без accessToken (первый 401 → ротация); `Session.logged_out` → `onLoggedOut?.()` + `stopLegacySync`.
 - `authStore.restoreSession()`: живой refresh/access → сессия восстановлена (isAuthenticated по userId); протухший refresh → `Session.logged_out` → тихий `signOut` (чистит refreshToken + `uiStore.openLogin`).
-- `AccountModel.refreshToken` (IndexedDB `accounts`); accessToken — только sessionStorage (Principles §3.2.1, §3.2.1.1).
+- `AccountModel.refreshToken` (IndexedDB `accounts`); accessToken — только sessionStorage (Principles §3.2.1, §3.2.2).
 - Бонус P1: `await pendingQueue.restore()` в `startLegacySync` + GC сирот: удаляются `pendingEvents`, чей txnId неактивен и сообщение уже доставлено (есть в `events`).
 - SSO (`m.login.sso`/`getSsoLoginUrl` + `m.login.token`) — открытая подзадача.
 - Отклонение от аудита: в HANDOFF была формулировка «GC, где события нет в `events`»; реализовано наоборот (удаляются доставленные дубликаты, не трогая failed-строки для Retry) — иначе ломается кнопка Retry из Слайса 3. Расхождение зафиксировано здесь.
@@ -271,6 +271,15 @@ E2EE по 00-PRINCIPLES §3.3 и 01-АРХ §4: строгий порядок `c
 3. Каждый слайс заканчивается коммитом(ами) с зелёным гейтом и обновлением `HANDOFF-<ник>.md`.
 4. Расхождения с 00–03 фиксируются в этих документах, а не в коде-комментариях.
 5. Владелец слайса фиксируется в колонке «Владелец» (§3); переназначение — только по решению владельца репозитория.
+
+### 11.1. Организация работы над слайсом (как шёл Слайс 5)
+
+Крупный слайс дробится на **законченные кодовые куски**, каждый — по TDD (падающий тест → реализация → зелёный) и отдельным код-коммитом с зелёным гейтом на каждом:
+
+- **Слайс 5 = 5.1a–5.1d:** 5.1a bootstrap cross-signing + recovery key → 5.1b SAS-верификация + trust-щитки → 5.1c QR show/scan → 5.1d документ UI-`docs/05-UI-E2EE.md` + обновление roadmap/HANDOFF. Каждый кусок автономен и сквозной (crypto → store → UI → тесты).
+- **Паттерн «код + доки»:** код-коммиты (`feat`/`fix`) — от автора-владельца (при соглашении — с трейлером `Co-authored-by` для AI), доки-коммиты (`docs`) — отдельными коммитами. Код и доки не смешиваются в одном коммите. Правила — `COMMITS.md`.
+- **Ревью перед закрытием:** после набора кусков запускается пак ревью-агентов (ponytail / SDK-API / безопасность / баги) по `origin/main..HEAD`; ключевые утверждения сверяются с исходниками SDK и кода. Найденные дефекты чинятся отдельным `fix`-коммитом, после чего слайс официально закрывается в §2/§8 и roadmap.
+- Все расхождения с доки (например, «SDK-метод оказался публичным, каст не нужен») фиксируются в соответствующем доку (§3.4/3.5 05-UI-E2EE), а не в комментариях кода.
 
 ---
 

@@ -345,7 +345,7 @@ API модуля `src/crypto/verification.ts`: `beginQrShow(userId, roomId)` —
 
 ### 7.3 Пароль (UIA)
 
-- `requestPassword` — модальный промпт пароля аккаунта при `bootstrapCrossSigning`, если сервер требует UIA. Пароль **не хранить и не логировать** (Principles §3.2.1.1).
+- `requestPassword` — модальный промпт пароля аккаунта при `bootstrapCrossSigning`, если сервер требует UIA. Пароль **не хранить и не логировать** (Principles §3.2.2).
 - UI: «Введите пароль от {homeserver}», ошибка UIA-неудачи — «повторить/отмена». Не связан с recovery key.
 
 ### 7.4 Хранение, ротация, сброс

@@ -45,15 +45,15 @@
 2. Любые обновления UI, приходящие из сети, проходят исключительно через `BatchedStoreManager` (гибридный сброс: `requestAnimationFrame` в активной вкладке, `setTimeout(0)` в фоне).  
   
 ## 3.2. Безопасность сессий  
-1. accessToken разрешено хранить только в оперативной памяти (RAM) текущей сессии или в sessionStorage. Категорически запрещено: localStorage, IndexedDB, Dexie, любые другие persistent-хранилища.  
-1.1. **refreshToken — исключение из п. 3.2.1:** хранится в `AccountModel.refreshToken` (таблица `accounts`, IndexedDB/Dexie). Причина: refresh-токен — единственное долгоживущее звено, позволяющее восстановить сессию после закрытия браузера без повторного ввода пароля. Пароль никогда не хранится и не логируется. Ограничение компенсируется тем, что refresh-токен ротируется при каждом использовании, а accessToken не пересекает границу IndexedDB. Риск похищения refresh-токена при XSS принимается до внедрения строгого CSP (Слайс 6).  
+**3.2.1.** accessToken разрешено хранить только в оперативной памяти (RAM) текущей сессии или в sessionStorage. Категорически запрещено: localStorage, IndexedDB, Dexie, любые другие persistent-хранилища.  
+**3.2.2.** **refreshToken — исключение из п. 3.2.1:** хранится в `AccountModel.refreshToken` (таблица `accounts`, IndexedDB/Dexie). Причина: refresh-токен — единственное долгоживущее звено, позволяющее восстановить сессию после закрытия браузера без повторного ввода пароля. Пароль никогда не хранится и не логируется. Ограничение компенсируется тем, что refresh-токен ротируется при каждом использовании, а accessToken не пересекает границу IndexedDB. Риск похищения refresh-токена при XSS принимается до внедрения строгого CSP (Слайс 6).  
 **Передача токена между вкладками:** Для поддержки Multi-tab переключения ролей (Master/Slave) перенос accessToken между вкладками выполняется исключительно по запросу через `BroadcastChannel` с использованием защищённого handshake/nonce-механизма без сохранения на диск.  
-2. Crypto store всегда изолирован по формуле:  
-`storePrefix: matrix-js-sdk:crypto:${userId}:${deviceId}`  
+**3.2.3.** Crypto store всегда изолирован по формуле:  
+`cryptoDatabasePrefix: matrix-js-sdk:crypto:${userId}:${deviceId}`  
 Использование общего store без префикса запрещено.  
 ## 3.3. Инициализация и E2EE  
 1. Строгий порядок Cold Start (нарушение почти гарантированно приводит к Permanent UTD):  
-`createClient()` → `await initRustCrypto({ storePrefix })` → `startClient()`  
+`createClient()` → `await initRustCrypto({ cryptoDatabasePrefix })` → `startClient()`  
 Никакие события `/sync` не должны обрабатываться до полного завершения `initRustCrypto`.  
 2. Фоновые (Lazy) аккаунты обязаны получать критические события шифрования и актуализации устройств.  
 Filter для Lazy-аккаунтов должен включать `to_device` и государственные типы как минимум:  
@@ -92,7 +92,9 @@ Filter для Lazy-аккаунтов должен включать `to_device` 
 2. `01-ARCHITECTURE.md`  
 3. `02-DATA-MODEL.md`  
 4. `03-REFERENCE-CODE.md`  
-5. Дорожная карта  
+5. `docs/05-UI-E2EE.md` (контракты/референсы E2EE; подчиняется 00–03)  
+6. `docs/DESIGN.md` (референс для UI-слоя)  
+7. Дорожная карта (`04-ROADMAP.md`)  
   
 ---  
   

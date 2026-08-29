@@ -117,14 +117,14 @@ Persistence Layer (Dexie.js + Cache Storage)
 ### Изоляция  
 Каждый аккаунт + устройство имеет свой изолированный store:  
 ```ts  
-storePrefix: `matrix-js-sdk:crypto:${userId}:${deviceId}`  
-```  
-  
+cryptoDatabasePrefix: `matrix-js-sdk:crypto:${userId}:${deviceId}`  
+```
+
 ### Cold Start Protocol  
 Строгая последовательность (см. Principles §3.3.1):  
-  
+
 1. `createClient()`  
-2. `await initRustCrypto({ storePrefix })` — полная загрузка WASM и восстановление сессий  
+2. `await initRustCrypto({ cryptoDatabasePrefix })` — полная загрузка WASM и восстановление сессий  
 3. Только после этого — `startClient()`  
   
 Любая обработка событий до завершения `initRustCrypto` запрещена.  
@@ -180,7 +180,7 @@ DTO содержат только данные, необходимые для о
   
 Основные защиты:  
   
-- *`accessToken`* — только RAM или *`sessionStorage`* (никогда в IndexedDB/localStorage); *`refreshToken`* — единственное исключение, в `accounts.refreshToken` (Principles §3.2.1.1, Слайс 4)
+- *`accessToken`* — только RAM или *`sessionStorage`* (никогда в IndexedDB/localStorage); *`refreshToken`* — единственное исключение, в `accounts.refreshToken` (Principles §3.2.2, Слайс 4)
 - Полная изоляция crypto store по *`userId + deviceId`*
 - Одна Master-вкладка на устройство (Web Locks)  
 - Статическая схема базы данных  
@@ -197,10 +197,13 @@ object-src 'none';
 ---  
   
 ## 8. Связь с другими документами  
-  
+   
+- **00-PRINCIPLES.md** — конституция и жёсткие инварианты (этот документ им подчиняется).  
 - **02-DATA-MODEL.md** — точная схема Dexie, атомарные транзакции, promote-логика, retention, media cache.  
 - **03-REFERENCE-CODE.md** — эталонные реализации ключевых компонентов.  
 - **04-ROADMAP.md** — этапы реализации.  
+- **05-UI-E2EE.md** — контракты/референсы E2EE (SAS/QR/trust/recovery).  
+- **DESIGN.md** — дизайн-референс UI-слоя.  
   
 ---  
   
