@@ -118,6 +118,22 @@ describe('cryptoStore', () => {
     expect(cryptoStore.setupNeeded).toBe(true)
   })
 
+  it('showBanner stays hidden until the security status has been loaded', () => {
+    cryptoStore.reset()
+    expect(cryptoStore.setupNeeded).toBe(true)
+    expect(cryptoStore.showBanner).toBe(false)
+  })
+
+  it('reset re-hides the banner until the status reloads on the next session', async () => {
+    await cryptoStore.init(alice)
+    expect(cryptoStore.showBanner).toBe(true)
+    cryptoStore.reset()
+    expect(cryptoStore.setupNeeded).toBe(true)
+    expect(cryptoStore.showBanner).toBe(false)
+    await cryptoStore.init(alice)
+    expect(cryptoStore.showBanner).toBe(true)
+  })
+
   it('runSetup generates a recovery key and finishSetup closes the dialog', async () => {
     await cryptoStore.init(alice)
     vi.mocked(setupRecovery).mockResolvedValue('rec-key-abc')

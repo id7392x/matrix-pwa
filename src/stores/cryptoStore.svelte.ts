@@ -17,6 +17,7 @@ class CryptoStoreManager {
   secretStorageReady = $state(false)
   recoveryKeyInMemory = $state(false)
   bannerDismissed = $state(false)
+  statusLoaded = $state(false)
 
   setupVisible = $state(false)
   setupBusy = $state(false)
@@ -27,7 +28,7 @@ class CryptoStoreManager {
   passwordVisible = $state(false)
 
   setupNeeded = $derived(!this.crossSigningReady || !this.secretStorageReady)
-  showBanner = $derived(this.setupNeeded && !this.bannerDismissed)
+  showBanner = $derived(this.statusLoaded && this.setupNeeded && !this.bannerDismissed)
 
   private userId = ''
   private unlockKeys: Record<string, SecretStorageKeyDescription> = {}
@@ -46,6 +47,7 @@ class CryptoStoreManager {
     this.crossSigningReady = state.crossSigningReady
     this.secretStorageReady = state.secretStorageReady
     this.recoveryKeyInMemory = state.recoveryKeyInMemory
+    this.statusLoaded = true
   }
 
   /**
@@ -181,6 +183,7 @@ class CryptoStoreManager {
     this.secretStorageReady = false
     this.recoveryKeyInMemory = false
     this.bannerDismissed = false
+    this.statusLoaded = false
     this.setupVisible = false
     this.setupBusy = false
     this.setupError = ''
