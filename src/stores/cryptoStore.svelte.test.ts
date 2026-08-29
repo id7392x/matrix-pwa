@@ -186,6 +186,31 @@ describe('cryptoStore', () => {
     expect(cryptoStore.unlockVisible).toBe(false)
   })
 
+  it('re-runs autoRestore after a pending unlock succeeds', async () => {
+    await cryptoStore.init(alice)
+    const match = { keyId: 'k1', privateKey: new Uint8Array(32).fill(1) }
+    vi.mocked(unlockRecovery).mockResolvedValue(match)
+    vi.mocked(autoRestoreBackup).mockResolvedValue('restored')
+    const pending = cryptoStore.requestRecoveryKey(makeDesc())
+
+    await cryptoStore.submitUnlockKey('recoverytext')
+
+    await expect(pending).resolves.toEqual(match)
+    expect(autoRestoreBackup).toHaveBeenCalledTimes(1)
+  })
+
+  it('re-runs autoRestore after a proactive unlock', async () => {
+    await cryptoStore.init(alice)
+    cryptoStore.openUnlock()
+    vi.mocked(installRecoveryKey).mockResolvedValue(true)
+    vi.mocked(autoRestoreBackup).mockResolvedValue('restored')
+
+    await cryptoStore.submitUnlockKey('recoverytext')
+
+    expect(autoRestoreBackup).toHaveBeenCalledTimes(1)
+    expect((await db.accounts.get(alice))?.backupRestored).toBe(true)
+  })
+
   it('password prompt resolves the entered password', async () => {
     await cryptoStore.init(alice)
     const pending = cryptoStore.requestPassword()

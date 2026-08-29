@@ -90,11 +90,17 @@ export type RestoreStatus = 'restored' | 'no-backup' | 'untrusted' | 'failed'
 export async function autoRestoreBackup(): Promise<RestoreStatus> {
   if (!crypto) return 'no-backup'
   try {
-    const check = await crypto.checkKeyBackupAndEnable()
+    let check = await crypto.checkKeyBackupAndEnable()
     if (!check) return 'no-backup'
-    if (!check.trustInfo.trusted || !check.trustInfo.matchesDecryptionKey) return 'untrusted'
-    // Pulls the backup decryption key from 4S; may trigger our recovery-key prompt.
-    await crypto.loadSessionBackupPrivateKeyFromSecretStorage()
+    if (!check.trustInfo.trusted || !check.trustInfo.matchesDecryptionKey) {
+      // A fresh device can't prove signature trust and has no backup decryption key yet.
+      // Load it from 4S (uses a cached/provisional recovery key, otherwise prompts via
+      // the recovery-key dialog); with it the backup becomes usable (matchesDecryptionKey).
+      await crypto.loadSessionBackupPrivateKeyFromSecretStorage()
+      check = await crypto.checkKeyBackupAndEnable()
+      if (!check || !check.trustInfo.matchesDecryptionKey) return 'untrusted'
+    }
+    // `restoreKeyBackup` reads the decryption key saved above from the crypto store.
     await crypto.restoreKeyBackup({ progressCallback: () => {} })
     return 'restored'
   } catch {

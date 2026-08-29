@@ -129,6 +129,7 @@ class CryptoStoreManager {
       this.pendingUnlock = null
       resolve(match)
       await this.refreshStatus()
+      await this.autoRestore().catch(() => undefined)
       return
     }
     const ok = await installRecoveryKey(recoveryKey)
@@ -139,6 +140,7 @@ class CryptoStoreManager {
     this.unlockError = ''
     this.unlockVisible = false
     await this.refreshStatus()
+    await this.autoRestore().catch(() => undefined)
   }
 
   /** Provider callback for the SDK: opens the unlock dialog and waits for the user. */

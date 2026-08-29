@@ -301,19 +301,22 @@ describe('security', () => {
       expect(crypto.restoreKeyBackup).not.toHaveBeenCalled()
     })
 
-    it('returns untrusted and does not restore when the backup is not trusted', async () => {
-      const crypto = mockCrypto()
-      crypto.checkKeyBackupAndEnable = vi.fn().mockResolvedValue({ backupInfo, trustInfo: { trusted: false, matchesDecryptionKey: false } })
-      attachSecurity(mockClient(crypto))
-
-      expect(await autoRestoreBackup()).toBe('untrusted')
-      expect(crypto.loadSessionBackupPrivateKeyFromSecretStorage).not.toHaveBeenCalled()
-      expect(crypto.restoreKeyBackup).not.toHaveBeenCalled()
-    })
-
-    it('loads the backup private key and restores when the backup is trusted', async () => {
+    it('restores without re-loading when the backup is already trusted and the key matches', async () => {
       const crypto = mockCrypto()
       crypto.checkKeyBackupAndEnable = vi.fn().mockResolvedValue({ backupInfo, trustInfo: { trusted: true, matchesDecryptionKey: true } })
+      attachSecurity(mockClient(crypto))
+
+      expect(await autoRestoreBackup()).toBe('restored')
+      expect(crypto.loadSessionBackupPrivateKeyFromSecretStorage).not.toHaveBeenCalled()
+      expect(crypto.restoreKeyBackup).toHaveBeenCalledTimes(1)
+    })
+
+    it('loads the backup decryption key from 4S and restores when the backup is untrusted', async () => {
+      const crypto = mockCrypto()
+      const checkKeyBackupAndEnable = vi.fn()
+        .mockResolvedValueOnce({ backupInfo, trustInfo: { trusted: false, matchesDecryptionKey: false } })
+        .mockResolvedValueOnce({ backupInfo, trustInfo: { trusted: false, matchesDecryptionKey: true } })
+      crypto.checkKeyBackupAndEnable = checkKeyBackupAndEnable
       attachSecurity(mockClient(crypto))
 
       expect(await autoRestoreBackup()).toBe('restored')
@@ -321,14 +324,52 @@ describe('security', () => {
       expect(crypto.restoreKeyBackup).toHaveBeenCalledTimes(1)
     })
 
-    it('returns failed when loading or restoring throws', async () => {
+    it('loads the key from 4S when the signature is trusted but the key is not stored yet', async () => {
       const crypto = mockCrypto()
-      crypto.checkKeyBackupAndEnable = vi.fn().mockResolvedValue({ backupInfo, trustInfo: { trusted: true, matchesDecryptionKey: true } })
+      const checkKeyBackupAndEnable = vi.fn()
+        .mockResolvedValueOnce({ backupInfo, trustInfo: { trusted: true, matchesDecryptionKey: false } })
+        .mockResolvedValueOnce({ backupInfo, trustInfo: { trusted: true, matchesDecryptionKey: true } })
+      crypto.checkKeyBackupAndEnable = checkKeyBackupAndEnable
+      attachSecurity(mockClient(crypto))
+
+      expect(await autoRestoreBackup()).toBe('restored')
+      expect(crypto.loadSessionBackupPrivateKeyFromSecretStorage).toHaveBeenCalledTimes(1)
+      expect(crypto.restoreKeyBackup).toHaveBeenCalledTimes(1)
+    })
+
+    it('returns untrusted when the backup never becomes usable', async () => {
+      const crypto = mockCrypto()
+      const checkKeyBackupAndEnable = vi.fn()
+        .mockResolvedValueOnce({ backupInfo, trustInfo: { trusted: false, matchesDecryptionKey: false } })
+        .mockResolvedValueOnce({ backupInfo, trustInfo: { trusted: false, matchesDecryptionKey: false } })
+      crypto.checkKeyBackupAndEnable = checkKeyBackupAndEnable
+      attachSecurity(mockClient(crypto))
+
+      expect(await autoRestoreBackup()).toBe('untrusted')
+      expect(crypto.loadSessionBackupPrivateKeyFromSecretStorage).toHaveBeenCalledTimes(1)
+      expect(crypto.restoreKeyBackup).not.toHaveBeenCalled()
+    })
+
+    it('returns failed when loading the backup private key throws', async () => {
+      const crypto = mockCrypto()
+      crypto.checkKeyBackupAndEnable = vi.fn().mockResolvedValue({ backupInfo, trustInfo: { trusted: false, matchesDecryptionKey: false } })
       crypto.loadSessionBackupPrivateKeyFromSecretStorage = vi.fn().mockRejectedValue(new Error('no 4s key'))
       attachSecurity(mockClient(crypto))
 
       expect(await autoRestoreBackup()).toBe('failed')
       expect(crypto.restoreKeyBackup).not.toHaveBeenCalled()
+    })
+
+    it('returns failed when restoring throws', async () => {
+      const crypto = mockCrypto()
+      const checkKeyBackupAndEnable = vi.fn()
+        .mockResolvedValueOnce({ backupInfo, trustInfo: { trusted: false, matchesDecryptionKey: false } })
+        .mockResolvedValueOnce({ backupInfo, trustInfo: { trusted: false, matchesDecryptionKey: true } })
+      crypto.checkKeyBackupAndEnable = checkKeyBackupAndEnable
+      crypto.restoreKeyBackup = vi.fn().mockRejectedValue(new Error('restore failed'))
+      attachSecurity(mockClient(crypto))
+
+      expect(await autoRestoreBackup()).toBe('failed')
     })
   })
 
