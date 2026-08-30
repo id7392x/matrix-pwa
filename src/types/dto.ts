@@ -64,4 +64,5 @@ export interface RoomDto {
   highlightCount: number
   lastEventTs: number
   isDirect: boolean
+  dmPartner?: string
 }

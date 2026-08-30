@@ -28,13 +28,9 @@
     }
   })
 
-  // The DM partner for the Verify CTA: the single other sender in a direct room.
-  const dmPartner = $derived(
-    roomStore.rooms.some((r) => r.id === roomId && r.isDirect)
-      ? [...new Set(events.map((e) => e.sender).filter((s) => s !== userId))].at(0) ?? null
-      : null,
-  )
-  const partnerNeedsVerification = $derived(dmPartner !== null && !verificationStore.isTrusted(dmPartner))
+  // The DM partner comes from the room's member list, not the timeline: it must be
+  // visible even before the partner's messages are loaded (and regardless of m.direct).
+  const dmPartner = $derived(roomStore.rooms.find((r) => r.id === roomId)?.dmPartner ?? null)
 
   async function sendMessage() {
     if (!message.trim() || !userId) return
@@ -56,7 +52,7 @@
 <div class="flex h-full flex-1 flex-col gap-2 overflow-y-auto p-4">
   <div class="flex items-center justify-between">
     <h2 class="text-lg font-semibold text-[var(--text-primary)]">Messages</h2>
-    {#if partnerNeedsVerification && dmPartner}
+    {#if dmPartner}
       <button
         onclick={() => verificationStore.verifyUser(dmPartner, roomId)}
         class="rounded-lg bg-[var(--accent-color)] px-3 py-1 text-xs font-semibold text-white"

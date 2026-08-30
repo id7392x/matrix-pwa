@@ -12,6 +12,7 @@ export function toRoomDto(model: RoomModel): RoomDto {
     highlightCount: model.highlightCount,
     lastEventTs: model.lastEventTs,
     isDirect: model.isDirect,
+    dmPartner: model.dmPartner,
   }
 }
 

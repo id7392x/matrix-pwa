@@ -252,6 +252,16 @@ describe('verification', () => {
       expect(sessions.at(-1)?.otherUserId).toBe(bob)
     })
 
+    it('reports a cancelled session when the verification request cannot be created', async () => {
+      crypto.requestVerificationDM = vi.fn(async () => {
+        throw new Error('unknown userId')
+      })
+      attachVerification(mockClient(crypto))
+
+      await expect(beginUserVerification(bob, roomId)).resolves.toBeUndefined()
+      expect(sessions.at(-1)?.phase).toBe('cancelled')
+    })
+
     it('maps getUserVerificationStatus to a boolean trust value', async () => {
       crypto.getUserVerificationStatus = vi.fn(async () => ({ isCrossSigningVerified: () => true }))
       attachVerification(mockClient(crypto))
@@ -315,6 +325,17 @@ describe('verification', () => {
       expect(sessions.at(-1)?.phase).toBe('cancelled')
     })
 
+    it('beginQrShow reports cancelled when the verification request cannot be created', async () => {
+      crypto.requestVerificationDM = vi.fn(async () => {
+        throw new Error('crash')
+      })
+      attachVerification(mockClient(crypto))
+
+      await beginQrShow(bob, roomId)
+
+      expect(sessions.at(-1)?.phase).toBe('cancelled')
+    })
+
     it('beginQrShow reports cancelled when QR generation throws', async () => {
       const request = new FakeRequest(VerificationPhase.Requested)
       request.generateQRCode = vi.fn(async () => {
@@ -346,6 +367,17 @@ describe('verification', () => {
       verifier.verify = vi.fn(() => Promise.reject(new Error('cancelled')))
       request.scanQRCode = vi.fn(async () => verifier)
       crypto.requestVerificationDM = vi.fn(async () => request)
+      attachVerification(mockClient(crypto))
+
+      await scanQrVerification(bob, roomId, QR_TEXT)
+
+      expect(sessions.at(-1)?.phase).toBe('cancelled')
+    })
+
+    it('scanQrVerification reports cancelled when the request cannot be created', async () => {
+      crypto.requestVerificationDM = vi.fn(async () => {
+        throw new Error('crash')
+      })
       attachVerification(mockClient(crypto))
 
       await scanQrVerification(bob, roomId, QR_TEXT)

@@ -85,6 +85,23 @@ describe('SyncOrchestrator', () => {
     })
   })
 
+  it('persists the dm partner derived from room membership', async () => {
+    const { orchestrator } = setup()
+    await orchestrator.handleSync(
+      sync({
+        rooms: {
+          join: {
+            [roomId]: {
+              dmPartner: '@partner:example.org',
+            },
+          },
+        },
+      }),
+    )
+
+    expect((await db.rooms.get(`${alice}:${roomId}`))?.dmPartner).toBe('@partner:example.org')
+  })
+
   it('routes echo events with an active txnId through promote (no duplicate)', async () => {
     const { store, queue, orchestrator } = setup()
     await queue.create(alice, roomId, { body: 'hello' }, 'txn-1')

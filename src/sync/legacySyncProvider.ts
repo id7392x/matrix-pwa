@@ -26,7 +26,11 @@ export function toSyncRawEvent(event: MatrixEvent): SyncRawEvent {
 
 export function toSyncJoinedRoom(room: Room, isDirect = false): SyncJoinedRoom {
   const timeline = room.getLiveTimeline()
-  return {
+  const others = room
+    .getJoinedMembers()
+    .map((m) => m.userId)
+    .filter((userId) => userId !== room.myUserId)
+  const joined: SyncJoinedRoom = {
     name: room.name || room.roomId,
     isDirect,
     unread_notifications: {
@@ -38,6 +42,8 @@ export function toSyncJoinedRoom(room: Room, isDirect = false): SyncJoinedRoom {
       events: timeline.getEvents().map(toSyncRawEvent),
     },
   }
+  if (others.length === 1) joined.dmPartner = others[0]
+  return joined
 }
 
 function directRoomIds(client: MatrixClient): Set<string> {

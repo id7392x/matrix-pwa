@@ -100,8 +100,14 @@ function emitTrust(userId: string, verified: boolean, gen: number): void {
 /** Initiates a SAS verification of `userId` over the direct chat `roomId`. */
 export async function beginUserVerification(userId: string, roomId: string): Promise<void> {
   if (!crypto) return
-  const request = await crypto.requestVerificationDM(userId, roomId)
-  await runSasVerification(request, roomId)
+  const gen = generation
+  try {
+    const request = await crypto.requestVerificationDM(userId, roomId)
+    await runSasVerification(request, roomId)
+  } catch {
+    // The target may have no E2EE devices (e.g. an account without keys): report dead state.
+    emit({ otherUserId: userId, roomId, phase: 'cancelled', emojis: [] }, gen)
+  }
 }
 
 /** Runs a SAS verification against `request`, pushing UI sessions through the handler. */
@@ -211,9 +217,9 @@ export async function beginQrShow(userId: string, roomId: string): Promise<void>
   if (!crypto) return
   cancelRequested = false
   const gen = generation
-  const request = await crypto.requestVerificationDM(userId, roomId)
   const session: VerificationSessionUi = { otherUserId: userId, roomId, phase: 'qr', emojis: [] }
   try {
+    const request = await crypto.requestVerificationDM(userId, roomId)
     const bytes = await request.generateQRCode()
     if (!bytes) {
       emit({ ...session, phase: 'cancelled' }, gen)
@@ -254,9 +260,9 @@ export async function scanQrVerification(userId: string, roomId: string, qrText:
   if (!crypto) return
   cancelRequested = false
   const gen = generation
-  const request = await crypto.requestVerificationDM(userId, roomId)
   const session: VerificationSessionUi = { otherUserId: userId, roomId, phase: 'qr', emojis: [] }
   try {
+    const request = await crypto.requestVerificationDM(userId, roomId)
     emit({ ...session, qrText }, gen)
     const verifier = await request.scanQRCode(new Uint8ClampedArray(new TextEncoder().encode(qrText)))
     if (cancelRequested || gen !== generation) return

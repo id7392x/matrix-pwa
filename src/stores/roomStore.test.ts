@@ -28,6 +28,11 @@ describe('toRoomDto', () => {
   it('falls back to roomId as the display name', () => {
     expect(toRoomDto({ ...roomA, name: undefined }).name).toBe('!a')
   })
+
+  it('passes the dm partner through to the DTO', () => {
+    const dto = toRoomDto({ ...roomA, dmPartner: '@partner:example.org' })
+    expect(dto.dmPartner).toBe('@partner:example.org')
+  })
 })
 
 describe('roomStore', () => {

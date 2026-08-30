@@ -51,6 +51,23 @@ function makeNameEvent(name: string): MatrixEvent {
   })
 }
 
+function addMembers(room: Room, ...userIds: string[]): void {
+  room.currentState.setStateEvents(
+    userIds.map(
+      (userId) =>
+        new MatrixEvent({
+          event_id: `$member-${userId}`,
+          room_id: room.roomId,
+          origin_server_ts: 1,
+          sender: userId,
+          type: EventType.RoomMember,
+          state_key: userId,
+          content: { membership: 'join' },
+        }),
+    ),
+  )
+}
+
 describe('toSyncRawEvent', () => {
   it('maps a MatrixEvent to SyncRawEvent with raw content and txn_id', () => {
     const raw = toSyncRawEvent(
@@ -142,6 +159,37 @@ describe('toSyncJoinedRoom', () => {
     expect(joined.name).toBe(roomId)
     expect(joined.isDirect).toBe(false)
     expect(joined.unread_notifications).toEqual({ notification_count: 0, highlight_count: 0 })
+  })
+
+  it('derives dmPartner from the single other joined member', () => {
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    const room = makeRoom(client)
+    addMembers(room, alice, bob)
+
+    expect(toSyncJoinedRoom(room).dmPartner).toBe(bob)
+  })
+
+  it('leaves dmPartner undefined for group rooms', () => {
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    const room = makeRoom(client)
+    addMembers(room, alice, bob, '@carol:example.org')
+
+    expect(toSyncJoinedRoom(room).dmPartner).toBeUndefined()
+  })
+
+  it('leaves dmPartner undefined when only the local user is joined', () => {
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    const room = makeRoom(client)
+    addMembers(room, alice)
+
+    expect(toSyncJoinedRoom(room).dmPartner).toBeUndefined()
+  })
+
+  it('omit dmPartner when the room has no member state at all', () => {
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    const room = makeRoom(client)
+
+    expect(toSyncJoinedRoom(room)).not.toHaveProperty('dmPartner')
   })
 })
 
@@ -285,6 +333,20 @@ describe('LegacySyncProvider', () => {
       unread_notifications: { notification_count: 0, highlight_count: 0 },
       timeline: { prev_batch: '', events: [] },
     })
+  })
+
+  it('carries the dm partner through the sync response', async () => {
+    const client = await setup()
+    const room = makeRoom(client)
+    addMembers(room, alice, bob)
+    await client.store.storeRoom(room)
+
+    const { listener } = await startedProvider(client)
+
+    client.emit(ClientEvent.Sync, SyncState.Syncing, SyncState.Prepared, { nextSyncToken: 'nb1' })
+
+    const sync = listener.mock.calls[0][0] as SyncResponse
+    expect(sync.rooms.join[roomId].dmPartner).toBe(bob)
   })
 
   it('does nothing on sync states without a next batch token', async () => {

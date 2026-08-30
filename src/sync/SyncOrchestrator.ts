@@ -74,6 +74,7 @@ export class SyncOrchestrator {
       roomId,
       membership: 'join',
       isDirect: room.isDirect ?? false,
+      dmPartner: room.dmPartner,
       unreadCount: room.unread_notifications?.notification_count ?? 0,
       highlightCount: room.unread_notifications?.highlight_count ?? 0,
       lastEventTs,

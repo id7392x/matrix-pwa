@@ -19,6 +19,8 @@ export interface SyncJoinedRoom {
   timeline?: SyncRoomTimeline
   name?: string
   isDirect?: boolean
+  /** The single other joined member, i.e. the DM partner; undefined for groups. */
+  dmPartner?: string
   unread_notifications?: {
     notification_count?: number
     highlight_count?: number

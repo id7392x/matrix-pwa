@@ -28,6 +28,7 @@ export interface RoomModel {
   name?: string
   avatarUrl?: string
   summaryDto?: string
+  dmPartner?: string // единственный другой участник DM (не в индексах — без миграции)
 }
 
 export interface EventModel {
