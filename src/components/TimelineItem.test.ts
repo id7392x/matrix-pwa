@@ -1,8 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from 'svelte'
 
 import TimelineItem from '$components/TimelineItem.svelte'
 import { PendingQueueService, registerQueue } from '$sync/PendingQueueService'
+import { authStore } from '$stores/authStore.svelte'
+import { verificationStore } from '$stores/verificationStore.svelte'
 import type { EventDto } from '$types/dto'
 
 function evt(overrides: Partial<EventDto> = {}): EventDto {
@@ -21,7 +23,7 @@ function evt(overrides: Partial<EventDto> = {}): EventDto {
 
 function render(event: EventDto): HTMLElement {
   const target = document.createElement('div')
-  mount(TimelineItem, { target, props: { event } })
+  mount(TimelineItem, { target, props: { event, roomId: '!r:example.org' } })
   return target
 }
 
@@ -87,5 +89,47 @@ describe('TimelineItem', () => {
     button.click()
 
     await vi.waitFor(() => expect(retry).toHaveBeenCalledWith('@alice:example.org', 'txn-1'))
+  })
+})
+
+describe('TimelineItem verification', () => {
+  beforeEach(() => {
+    authStore.userId = '@me:example.org'
+    verificationStore.reset()
+  })
+
+  it('renders a Verify button for a foreign encrypted sender', () => {
+    const el = render(evt({ isEncrypted: true, sender: '@alice:example.org' }))
+    expect(el.querySelector('[data-verify]')).toBeTruthy()
+  })
+
+  it('renders a Verify button even when the sender is already trusted', () => {
+    verificationStore.trust.set('@alice:example.org', true)
+    const el = render(evt({ isEncrypted: true, sender: '@alice:example.org' }))
+    expect(el.querySelector('[data-verify]')).toBeTruthy()
+  })
+
+  it('renders a Verify button for a foreign unencrypted sender', () => {
+    const el = render(evt({ sender: '@alice:example.org' }))
+    expect(el.querySelector('[data-verify]')).toBeTruthy()
+  })
+
+  it('does not render a Verify button for the user\'s own message', () => {
+    const el = render(evt({ sender: '@me:example.org' }))
+    expect(el.querySelector('[data-verify]')).toBeNull()
+  })
+
+  it('does not render the untrusted shield for the user\'s own message', () => {
+    const el = render(evt({ isEncrypted: true, sender: '@me:example.org' }))
+    expect(el.querySelector('[data-shield]')).toBeNull()
+  })
+
+  it('Verify button calls verificationStore.verifyUser with the sender and roomId', () => {
+    const verifyUser = vi.spyOn(verificationStore, 'verifyUser')
+    const el = render(evt({ isEncrypted: true, sender: '@alice:example.org' }))
+    const button = el.querySelector('[data-verify]') as HTMLButtonElement
+    button.click()
+
+    expect(verifyUser).toHaveBeenCalledWith('@alice:example.org', '!r:example.org')
   })
 })

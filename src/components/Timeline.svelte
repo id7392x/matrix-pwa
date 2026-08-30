@@ -75,7 +75,7 @@
     <p class="text-sm text-[var(--text-primary)]/60">No messages yet</p>
   {/if}
   {#each events as event (event.id)}
-    <TimelineItem {event} />
+    <TimelineItem {event} {roomId} />
   {/each}
 
   <div class="mt-auto p-4">

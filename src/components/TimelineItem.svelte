@@ -1,11 +1,15 @@
 <script lang="ts">
+  import { authStore } from '$stores/authStore.svelte'
   import { getActiveQueue } from '$sync/PendingQueueService'
   import { verificationStore } from '$stores/verificationStore.svelte'
   import type { EventDto } from '$types/dto'
 
-  let { event }: { event: EventDto } = $props()
+  let { event, roomId }: { event: EventDto; roomId: string } = $props()
 
-  const isUntrusted = $derived(event.isEncrypted && !verificationStore.isTrusted(event.sender))
+  const isOwn = $derived(event.sender === authStore.userId)
+  // Verification of the sender is always possible; the shield only flags untrusted encrypted senders.
+  const canVerify = $derived(!isOwn)
+  const isUntrusted = $derived(event.isEncrypted && !isOwn && !verificationStore.isTrusted(event.sender))
 
   const statusLabel = $derived(
     event.decryptionError
@@ -46,15 +50,26 @@
     {#if statusLabel}
       <span data-status class="text-xs text-amber-400">{statusLabel}</span>
     {/if}
-    {#if event.syncState === 'failed' && event.txnId}
-      <button
-        data-retry
-        onclick={retry}
-        class="ml-auto text-xs text-blue-400 hover:underline"
-      >
-        Retry
-      </button>
-    {/if}
+    <div class="ml-auto flex items-center gap-2">
+      {#if canVerify}
+        <button
+          data-verify
+          onclick={() => verificationStore.verifyUser(event.sender, roomId)}
+          class="text-xs text-blue-400 hover:underline"
+        >
+          Verify
+        </button>
+      {/if}
+      {#if event.syncState === 'failed' && event.txnId}
+        <button
+          data-retry
+          onclick={retry}
+          class="text-xs text-blue-400 hover:underline"
+        >
+          Retry
+        </button>
+      {/if}
+    </div>
   </div>
   <p class="text-sm text-[var(--text-primary)]/90">{event.body}</p>
 </div>
