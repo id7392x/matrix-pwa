@@ -1,47 +1,72 @@
-# Svelte + TS + Vite
+# Matrix PWA
 
-This template should help get you started developing with Svelte and TypeScript in Vite.
+_A privacy-first chat client for the Matrix network, built as a web app._
 
-## Recommended IDE Setup
+[![CI](https://github.com/id7392x/matrix-pwa/actions/workflows/gate.yml/badge.svg)](https://github.com/id7392x/matrix-pwa/actions/workflows/gate.yml)
+[![License: AGPL-3.0](https://img.shields.io/github/license/id7392x/matrix-pwa)](LICENSE)
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
+Matrix is an open network for chat — think of it like email, but for messaging.
+Your messages live on a server you choose, yet you can talk to anyone in the
+network, no matter which server they use. No one owns the network.
 
-## Need an official Svelte framework?
+This app is a client for that network. You sign in with your Matrix account and
+chat with people across the whole network — right in your browser, with
+end-to-end encryption on by default.
 
-Check out [SvelteKit](https://github.com/sveltejs/kit#readme), which is also powered by Vite. Deploy anywhere with its serverless-first approach and adapt to various platforms, with out of the box support for TypeScript, SCSS, and Less, and easily-added support for mdsvex, GraphQL, PostCSS, Tailwind CSS, and more.
+> **Status:** active development. It's a working MVP — not yet ready as a daily
+> driver. New features ship slice by slice (see [the roadmap](docs/04-ROADMAP.md)).
 
-## Technical considerations
+## What works today
 
-**Why use this over SvelteKit?**
+- **Log in with your Matrix account** — password or SSO. Your session survives a
+  browser restart.
+- **See your rooms and unread messages** in one list.
+- **Send and receive messages instantly** (they appear immediately, even before
+  the network confirms).
+- **End-to-end encryption** — messages are sealed like an envelope; only you and
+  the recipient can read them, not even the servers. Includes device
+  verification (emoji or QR scan) and an account recovery key.
 
-- It brings its own routing solution which might not be preferable for some users.
-- It is first and foremost a framework that just happens to use Vite under the hood, not a Vite app.
+## What's coming next
 
-This template contains as little as possible to get started with Vite + TypeScript + Svelte, while taking into account the developer experience with regards to HMR and intellisense. It demonstrates capabilities on par with the other `create-vite` templates and is a good starting point for beginners dipping their toes into a Vite + Svelte project.
+- Chat history, pagination and a media cache
+- Creating and joining rooms, invites
+- Custom chat folders (sections in the room list)
+- Syncing across multiple browser tabs
+- Group video calls (after the MVP)
 
-Should you later need the extended capabilities and extensibility provided by SvelteKit, the template has been structured similarly to SvelteKit so that it is easy to migrate.
+## Try it
 
-**Why `global.d.ts` instead of `compilerOptions.types` inside `jsconfig.json` or `tsconfig.json`?**
+Requires **Node.js 24** and **pnpm 10**.
 
-Setting `compilerOptions.types` shuts out all other types not explicitly listed in the configuration. Using triple-slash references keeps the default TypeScript setting of accepting type information from the entire workspace, while also adding `svelte` and `vite/client` type information.
-
-**Why include `.vscode/extensions.json`?**
-
-Other templates indirectly recommend extensions via the README, but this file allows VS Code to prompt the user to install the recommended extension upon opening the project.
-
-**Why enable `allowJs` in the TS template?**
-
-While `allowJs: false` would indeed prevent the use of `.js` files in the project, it does not prevent the use of JavaScript syntax in `.svelte` files. In addition, it would force `checkJs: false`, bringing the worst of both worlds: not being able to guarantee the entire codebase is TypeScript, and also having worse typechecking for the existing JavaScript. In addition, there are valid use cases in which a mixed codebase may be relevant.
-
-**Why is HMR not preserving my local component state?**
-
-HMR state preservation comes with a number of gotchas! It has been disabled by default in both `svelte-hmr` and `@sveltejs/vite-plugin-svelte` due to its often surprising behavior. You can read the details [here](https://github.com/rixo/svelte-hmr#svelte-hmr).
-
-If you have state that's important to retain within a component, consider creating an external store which would not be replaced by HMR.
-
-```ts
-// store.ts
-// An extremely simple external store
-import { writable } from 'svelte/store'
-export default writable(0)
+```bash
+pnpm install
+pnpm dev
 ```
+
+Open <http://localhost:5173> and sign in with any Matrix account.
+
+| Command          | What it does                        |
+|------------------|-------------------------------------|
+| `pnpm dev`       | dev server at http://localhost:5173 |
+| `pnpm run check` | type-check and diagnostics          |
+| `pnpm test`      | run the test suite                  |
+| `pnpm run lint`  | lint                                |
+| `pnpm build`     | production build                    |
+
+## For developers
+
+- **Stack:** Svelte 5 (Runes) · TypeScript (strict) · Vite · Tailwind CSS ·
+  Dexie 4 (IndexedDB) · matrix-js-sdk v42 · Vodozemac WASM (E2EE)
+- **Quality gate:** every commit must pass `check`, `test`, `lint` — enforced
+  by a pre-commit hook and GitHub Actions.
+- **Architecture docs:** [00 — Principles](docs/00-PRINCIPLES.md) ·
+  [01 — Architecture](docs/01-ARCHITECTURE.md) ·
+  [02 — Data model](docs/02-DATA-MODEL.md) ·
+  [03 — Reference code](docs/03-REFERENCE-CODE.md) ·
+  [04 — Roadmap](docs/04-ROADMAP.md) ·
+  [05 — E2EE UI](docs/05-UI-E2EE.md)
+
+## License
+
+AGPL-3.0 — see [LICENSE](LICENSE).
