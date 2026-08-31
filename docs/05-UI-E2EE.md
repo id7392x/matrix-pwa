@@ -352,10 +352,10 @@ API модуля `src/crypto/verification.ts`: `beginQrShow(userId, roomId)` —
 
 Проблема: после логина на новом устройстве сессия не подписана cross-signing-ключами аккаунта — приватные беседы видны, но доверие не подтверждено. Классические клиенты гонят пользователя в сложный SAS-флоу с уже залогиненным устройством; у нас быстрее через recovery key.
 
-- **Триггер (`RoomList.svelte`)**: пилюля «!» появляется, когда `statusLoaded && secretStorageReady && !deviceVerified`. Если 4S не настроен вообще (`setupNeeded`) — пилюли нет, этим владеет `SecurityBanner`.
+- **Триггер (`RoomList.svelte`)**: кнопка «!» в общей пилюле шапки рядом с созданием чата появляется, когда `statusLoaded && secretStorageReady && !deviceVerified`. Если 4S не настроен вообще (`setupNeeded`) — кнопки нет, этим владеет `SecurityBanner`.
 - **`deviceVerified`** — `CryptoApi.getDeviceVerificationStatus(ownUserId, ownDeviceId).crossSigningVerified ?? false` (SDK v42: поле, не метод). Обновляется в `cryptoStore.refreshStatus()` на каждой инициализации и после unlock.
 - **Действие**: клик → `cryptoStore.openUnlock()` (та же `RecoveryKeyEntryDialog`). После успешного unlock `adoptCrossSigning()` (`bootstrapCrossSigning({ authUploadDeviceSigningKeys })`) подписывает это устройство своим self-signing ключом → `deviceVerified = true`.
-- **Поведение после верификации**: пилюля превращается в зелёный «✓», держится ~450 мс, уезжает вправо CSS-анимацией и размонтируется (`$effect` + `onanimationend`). Значит «таблетка меняет размер» (дизайн-решение пользователя).
+- **Поведение после верификации**: кнопка превращается в зелёный «✓», держится ~450 мс, фейдится-схлопывается CSS-анимацией и размонтируется (`$effect` + `onanimationend`); пилюля сжимается до карандаша создания чата (мгновенно — `ponytail:`).
 - **Запланировано (не реализовано)**: путь верификации **со второго устройства** — если recovery key недоступен, но есть другой залогиненный device. Схема: `requestOwnUserVerification()` / SAS-сессия между двумя своими устройствами (см. §9.5). Recovery-key путь — основной, он уже в коде.
 
 ### 7.4 Хранение, ротация, сброс
