@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { formatLastEventTs } from '$lib/format'
+  import { formatLastEventTs, previewText } from '$lib/format'
   import type { RoomDto } from '$types/dto'
 
   let { room, onSelect }: { room: RoomDto; onSelect?: (roomId: string) => void } = $props()
@@ -22,12 +22,13 @@
 
   const color = $derived(palette[hash(room.name) % palette.length])
   const time = $derived(formatLastEventTs(room.lastEventTs))
+  const preview = $derived(room.lastMessage ? previewText(room.lastMessage) : '')
 </script>
 
 <li>
   <button
     class="flex w-full cursor-pointer items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--accent-color)]/40"
-    aria-label={[room.name, time, room.unreadCount > 0 ? `${room.unreadCount} unread` : '']
+    aria-label={[room.name, time, preview, room.unreadCount > 0 ? `${room.unreadCount} unread` : '']
       .filter(Boolean)
       .join(', ')}
     onclick={() => onSelect?.(room.id)}
@@ -49,7 +50,10 @@
         <span class="truncate font-semibold text-[var(--text-primary)]">{room.name}</span>
         <span class="ml-2 shrink-0 text-xs text-[var(--text-primary)]/50">{time}</span>
       </span>
-      <span class="flex items-center justify-end">
+      <span class="flex items-center justify-between gap-2">
+        {#if room.lastMessage}
+          <span class="truncate text-sm text-[var(--text-primary)]/50">{preview}</span>
+        {/if}
         {#if room.unreadCount > 0}
           <span
             class="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--accent-color)] px-1.5 text-xs font-semibold text-white"

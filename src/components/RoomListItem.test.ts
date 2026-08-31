@@ -50,4 +50,29 @@ describe('RoomListItem', () => {
     target.querySelector('button')!.dispatchEvent(new Event('click', { bubbles: true }))
     expect(onSelect).toHaveBeenCalledWith('!room:example.org')
   })
+
+  it('renders the last message preview under the name', () => {
+    const target = document.createElement('div')
+    mount(RoomListItem, { target, props: { room: makeRoom({ lastMessage: 'hello world' }) } })
+
+    expect(target.textContent).toContain('hello world')
+  })
+
+  it('truncates overly long previews', () => {
+    const target = document.createElement('div')
+    mount(RoomListItem, {
+      target,
+      props: { room: makeRoom({ lastMessage: 'a'.repeat(300) }) },
+    })
+
+    expect(target.textContent).toContain('…')
+  })
+
+  it('includes the preview in the accessible label', () => {
+    const target = document.createElement('div')
+    mount(RoomListItem, { target, props: { room: makeRoom({ lastMessage: 'ping', unreadCount: 2 }) } })
+
+    const label = target.querySelector('button')!.getAttribute('aria-label')
+    expect(label).toBe('Matrix HQ, ping, 2 unread')
+  })
 })

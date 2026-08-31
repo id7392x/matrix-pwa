@@ -38,7 +38,11 @@
     <section class="hidden w-80 border-r border-[var(--glass-border)] md:block">
       <RoomList />
     </section>
-    <Timeline roomId={screen.roomId} />
+    {#key screen.roomId}
+      <section class="min-w-0 flex-1 animate-[chat-enter_0.22s_ease-out]">
+        <Timeline roomId={screen.roomId} />
+      </section>
+    {/key}
   </main>
 {/if}
 
