@@ -348,6 +348,16 @@ API модуля `src/crypto/verification.ts`: `beginQrShow(userId, roomId)` —
 - `requestPassword` — модальный промпт пароля аккаунта при `bootstrapCrossSigning`, если сервер требует UIA. Пароль **не хранить и не логировать** (Principles §3.2.2).
 - UI: «Введите пароль от {homeserver}», ошибка UIA-неудачи — «повторить/отмена». Не связан с recovery key.
 
+### 7.4 Верификация сессии (виджет в шапке списка комнат)
+
+Проблема: после логина на новом устройстве сессия не подписана cross-signing-ключами аккаунта — приватные беседы видны, но доверие не подтверждено. Классические клиенты гонят пользователя в сложный SAS-флоу с уже залогиненным устройством; у нас быстрее через recovery key.
+
+- **Триггер (`RoomList.svelte`)**: пилюля «!» появляется, когда `statusLoaded && secretStorageReady && !deviceVerified`. Если 4S не настроен вообще (`setupNeeded`) — пилюли нет, этим владеет `SecurityBanner`.
+- **`deviceVerified`** — `CryptoApi.getDeviceVerificationStatus(ownUserId, ownDeviceId).crossSigningVerified ?? false` (SDK v42: поле, не метод). Обновляется в `cryptoStore.refreshStatus()` на каждой инициализации и после unlock.
+- **Действие**: клик → `cryptoStore.openUnlock()` (та же `RecoveryKeyEntryDialog`). После успешного unlock `adoptCrossSigning()` (`bootstrapCrossSigning({ authUploadDeviceSigningKeys })`) подписывает это устройство своим self-signing ключом → `deviceVerified = true`.
+- **Поведение после верификации**: пилюля превращается в зелёный «✓», держится ~450 мс, уезжает вправо CSS-анимацией и размонтируется (`$effect` + `onanimationend`). Значит «таблетка меняет размер» (дизайн-решение пользователя).
+- **Запланировано (не реализовано)**: путь верификации **со второго устройства** — если recovery key недоступен, но есть другой залогиненный device. Схема: `requestOwnUserVerification()` / SAS-сессия между двумя своими устройствами (см. §9.5). Recovery-key путь — основной, он уже в коде.
+
 ### 7.4 Хранение, ротация, сброс
 
 - Recovery key живёт в RAM (`cachedKey`/`provisionalKey`) на время сессии. При выходе (`detachSecurity`) — очищается.
@@ -372,7 +382,7 @@ API модуля `src/crypto/verification.ts`: `beginQrShow(userId, roomId)` —
 2. **Trust-легенда** и тултипы у щитков (объяснение «что значит щиток» новичкам).
 3. **needsUserApproval баннер** в DM/группе при смене идентичности (Verify / Pin).
 4. **QR-флоу-доработки**: ошибки из §5.3 (tost «Код не распознан» при дёрганых декодах), кнопка «Показать свой код» в скан-пейне при отказе камеры, дебаунс/стабильный кадр jsQR. Show/scan-переключение и сами потоки — уже сделаны (5.1c).
-5. **QSS-вход в верификацию из диалога «новое устройство»** (`requestOwnUserVerification`).
+5. **QSS-вход в верификацию из диалога «новое устройство»** (`requestOwnUserVerification`). Касается и виджета сессии (§7.4): SAS/QR-подтверждение сессии между двумя своими устройствами, когда recovery key недоступен (`!recoveryKeyInMemory`).
 6. **Trust-панель участников/устройств** (список, фильтры, fingerprint).
 7. **Общий Dialog-компонент** (шаблон overlay/панель/кнопки) и инпут-компонент (шест для recovery key).
 8. **Loading/empty states** диалогов (I5, I10).
