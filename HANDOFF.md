@@ -5,8 +5,8 @@
 
 ## 1. Общее состояние репозитория
 
-- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, **HEAD: `683dceb`**, **в `origin` запушено юзером**: `1c776b8` (roadmap), `282dfa1` (LICENSE AGPL-3.0), `a7b838e` (README EN). ⚠️ **15 коммитов впереди `origin` (локальные, пуш по явному подтверждению):** verify-UI `acf5106`, `fd68626`; e2ee-фикс `05a12fe`; доки `db99e57`, `6d2c47c`, `a61c4c1`, `493f3aa`, `356e845`, `8a9621b`; UI-пуш `380f576`–`683dceb` (см. ниже). Все коммиты подписаны SSH (GitHub: Verified). История переписана: `id7392x` вычищен из .md файлов, author/committer fields сохранены. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
-- Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` **302/302** (21 файл), `pnpm run lint` чисто. Pre-commit хук (simple-git-hooks) прогоняется автоматически на каждом коммите.
+- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, **HEAD: `fe1aedc`**, **в `origin` запушено юзером**: `1c776b8` (roadmap), `282dfa1` (LICENSE AGPL-3.0), `a7b838e` (README EN). ⚠️ **16 коммитов впереди `origin` (локальные, пуш по явному подтверждению):** verify-UI `acf5106`, `fd68626`; e2ee-фикс `05a12fe`; UI-пуш `380f576`–`683dceb` (код, автор id7392x, подпись G); доки (автор OpenCode): `db99e57`, `6d2c47c`, `a61c4c1`, `493f3aa`, `356e845`, `8a9621b`, `fe1aedc`. Все коммиты подписаны SSH (GitHub: Verified). История переписана: `id7392x` вычищен из .md файлов, author/committer fields сохранены. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
+- Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` **315/315** (22 файла), `pnpm run lint` чисто. Pre-commit хук (simple-git-hooks) прогоняется автоматически на каждом коммите.
 - **GitHub Ruleset «Protect main»**: люди — только через PR (1 approval + статус-чек `gate` + signed commits); `<repo-owner>` — bypass на прямой push. ⚠️ Проверить вручную во вкладке Bypass: там должен быть ТОЛЬКО `<repo-owner>`.
 - **GitHub Actions** (`acd2798`): гейт `pnpm check/test/lint` на push и pull_request.
 - **Push-политика по трекам**: `<repo-owner>` — только локальные коммиты, пуш в `origin` после явного словесного подтверждения; контрибьюторы — только свои feature-ветки (подробности — `COMMITS.md`, `CONTRIBUTING.md`).
@@ -39,7 +39,7 @@
 | 5 | E2EE Cold Start + re-decryption | `<repo-owner>` | **выполнен** (локально; см. §5) |
 | 6 | История, пагинация, retention, медиа-кэш | свободен | **следующий** |
 | 7 | Multi-tab + Lazy-sync | свободен | запланирован |
-| Дизайн-трек (Д1–Д2) | горизонтальный, не вертикальный слайс | свободен | **ревью выполнено** (см. `docs/DESIGN.md`); **UI-пуш идёт** по `DESIGN.md` §8: токены (380f576) → Вход (66da661) → **главный экран** (`c5b8f54`+`ccc4f14`: аватары, превью, нижняя панель) → **интерактив** (`683dceb`: верификация сессии, press-фидбек, резиновые чипы, навбар 48px) → дальше переписка |
+| Дизайн-трек (Д1–Д2) | горизонтальный, не вертикальный слайс | свободен | **ревью выполнено** (см. `docs/DESIGN.md`); **UI-пуш идёт** по `DESIGN.md` §8: токены (380f576) → Вход (66da661) → **главный экран** (`c5b8f54`+`ccc4f14`: аватары, превью, нижняя панель) → **интерактив** (`683dceb`: верификация сессии, press-фидбек, резиновые чипы, навбар 48px) → **пилюля «верификация + создание чата» (в работе, план §6)** → переписка |
 
 ## 3. Общие знания (фактология, хвосты, нюансы)
 
@@ -89,8 +89,9 @@
 - `66da661` — `LoginScreen` по макету «Вход» (glass-карта, toggle пароля, CTA 56px, role=alert; тесты на toggle);
 - `c5b8f54` — **data**: `SyncJoinedRoom` += `avatarUrl`+`lastMessage`; `toSyncJoinedRoom(room, isDirect, baseUrl)` — комнатная thumbnail `getAvatarUrl(baseUrl,112,112,'crop',false)`, для DM фолбэк на аватар партнёра (`room.getMember(dmPartner)?.getAvatarUrl(...)`); `lastMessage` = реверс-скан live-timeline (m.room.message body; `m.room.encrypted`→`'Encrypted message'`); персист в `SyncOrchestrator.upsertRoom`, `RoomModel.lastMessage`, `RoomDto.lastMessage`. SDK-нюанс: `Room.getAvatarUrl` НЕ фолбэчится на аватар члена — фолбэк явный;
 - `ccc4f14` — **главный экран по макету** `41230df5`: превью последнего сообщения под именем (`previewText` в `format.ts`: схлопывание пробелов + кап 120 симв. + «…»; unread-бейдж справа той же строкой); шапка (glass-пилюля «Edit» слева, по центру «Chats»+замок); нижняя overlay-панель: нейтральные чипы «Все/Чаты/Контакты/Папки» (no-op, `ponytail:`, слайс папок m.tag), glass-навбар [Контакты/Чаты активная синяя/Настройки] (no-op), поиск-FAB (no-op); `{#key screen.roomId}` + `animate-[chat-enter_0.22s_ease-out]` + `@keyframes chat-enter`. Поиск убран из шапки (перенос в FAB), чипы пришли на место макета.
-- `683dceb` — **сессионный виджет верификации + интерактив**: (1) пилюля «!» в шапке списка при `statusLoaded && secretStorageReady && !deviceVerified`; клик → `cryptoStore.openUnlock()` (recovery key); успех → «✓» ~450 мс → `session-widget-leave` CSS-анимация вправо → unmount (см. дизайн юзера: «таблетка меняет размер»). Данные: `security.getDeviceVerified()` (`DeviceVerificationStatus.crossSigningVerified`, SDK v42 — поле, не метод), `adoptCrossSigning()` = `bootstrapCrossSigning({ authUploadDeviceSigningKeys })`; `cryptoStore.deviceVerified` в `refreshStatus()` + adopt после любого unlock. (2) Глобальный press-фидбек `button:active { transform: scale(0.96) }` + tap-highlight (app.css). (3) Чипы папок `w-fit max-w-[calc(100%-2rem)]` — резиновые под будущий счётчик папок (m.tag). (4) Навбар `h-12` (48px = поиск-FAB), активная вкладка `size-10`. Удалена старая пилюля [check/pencil]. Старый грабли: `onclick={() => {...}}` без обрамляющих `{}` ломает Svelte-парсинг — обработчики выносить в script; `$state` нельзя читать в своём же effect (самонвалидация → cleanup убивает таймер) — `prevUnverified` plain-переменная. **315 тестов**. Доки: `05-UI-E2EE.md` §7.4; SAS-со-второго-устройства — только план (§9.5).
-- **Проверка юзером:** главный экран на dev-сервере (:5174) — аватары/превью наполнятся после нового `/sync` (старые комнаты в БД получат `avatarUrl`/`lastMessage` на ближайшем цикле, `upsertRoom` пишет каждый sync).
+- `683dceb` — **сессионный виджет верификации + интерактив**: (1) кнопка «!» при `statusLoaded && secretStorageReady && !deviceVerified`; клик → `cryptoStore.openUnlock()` (recovery key); успех → «✓» ~450 мс → анимация-улёт → unmount. Данные: `security.getDeviceVerified()` (`DeviceVerificationStatus.crossSigningVerified`, SDK v42 — поле, не метод), `adoptCrossSigning()` = `bootstrapCrossSigning({ authUploadDeviceSigningKeys })`; `cryptoStore.deviceVerified` в `refreshStatus()` + adopt после любого unlock. (2) Глобальный press-фидбек `button:active { transform: scale(0.96) }` + tap-highlight (app.css). (3) Чипы папок `w-fit max-w-[calc(100%-2rem)]` — резиновые под будущий счётчик папок (m.tag). (4) Навбар `h-12` (48px = поиск-FAB), активная вкладка `size-10`. ВАЖНО: в этом коммите верификация — отдельная таблетка size-12 справа в шапке, а старая пилюля [check/pencil] удалена (карандаш «New chat» пропал — это чиним в §6). **315 тестов**.
+- `fe1aedc` (docs) — `05-UI-E2EE.md` §7.4 «Верификация сессии» + §9.5; HANDOFF-статусы.
+- **Проверка юзером:** главный экран на dev-сервере (:5174) — аватары/превью наполнятся после нового `/sync` (старые комнаты в БД получат `avatarUrl`/`lastMessage` на ближайшем цикле, `upsertRoom` пишет каждый sync). Юзер заметил: кнопка создания чата пропала (удалили со старой пилюлей), таблетка верификации больше «Edit» — план фикса в §6.
 - Дальше по §8: **«Переписка»** `aab4de2b` (Timeline/TimelineItem/composer) → verify-модалка → заделы поиска/контактов.
 
 **Verify UX (полечено, локально, ждёт пуша):** `acf5106` — пер-сообщенческая кнопка Verify на каждом чужом сообщении (всегда); `fd68626` — DM-партнёр из состава комнаты (`Room.getJoinedMembers()` → `others` без self → единственный = `dmPartner`), персист через `RoomModel.dmPartner`/`RoomDto` (неиндексируемое поле, миграция не нужна), CTA в шапке DM показывается всегда, когда партнёр известен (независимо от `m.direct` и наличия его сообщений — `isDirect` ненадёжен, а таймлайн партнёра пуст до Слайса 6.1). Доп.: `requestVerificationDM` обёрнут в try/catch во всех трёх входах (SAS/QR-show/QR-scan) — верификация юзера без E2EE-ключей (напр. `@server:matrix.org`, welcome-бот) падает грациозно (cancelled), без uncaught rejection. Итого **284 теста**. Проверено в браузере: шапка CTA появилась в DM с Matrix.org-ботом, клик не бросает ошибок.
@@ -120,4 +121,69 @@
 | **6.4 Виртуализация ленты** | средний–крупный | средняя–высокая | Сейчас `{#each}` по всем событиям (суть записан в ROADMAP как хвост слайса 1) — нужно окно/переиспользование DOM. Затрагивает `Timeline.svelte`/`TimelineItem`. |
 
 **Совет для старта:** идти в порядке 6.0 (безопасность, обязательно) → 6.2 (самый дешёвый) → 6.1 → 6.3 → 6.4 (самый крупный). Каждая подзадача — TDD (падающий тест → реализация → зелёный) + отдельный коммит; DOMPurify — новая dep (единственная разрешённая добавка; проверить, что не тащит `@types/node`, см. gotcha).
+
+## 6. Актуальная задача (2026-08-31, build): пилюля «верификация + создание чата»
+
+**Проблема (от юзера):** в `683dceb` удалили старую пилюлю [✓-read «Mark all read» + ✏️ «New message»] — вместе с ней исчезла кнопка создания чата. Виджет верификации сделали отдельно стоящей таблеткой `size-12` (48px + border 2 = 50px) — больше кнопки «Edit» (~38px).
+
+**Решение (согласовано с юзером):** кнопка верификации и создания чата — в ОДНОЙ таблетке; размер таблетки = как у «Edit». Карандаш «New chat» — **no-op** (создание комнат — Слайс 8, `createRoom` в SDK v42 есть, но не трогаем сейчас).
+
+### 6.1. Изменения в `src/components/RoomList.svelte` (шапка, правая часть)
+
+Убрать абсолютную обёртку (`<div class="absolute right-4 top-1/2 -translate-y-1/2">` вокруг виджета, строки ~77–98). Вместо неё — обычная flex-пилюля в потоке шапки (`header` = `relative flex justify-between`, справа):
+
+```svelte
+<div class="flex items-center gap-0.5 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] p-1 backdrop-blur-[16px]">
+  {#if widgetVisible && (unverified || flash || hide)}
+    <button
+      class="flex size-7 items-center justify-center rounded-full {hide ? 'session-widget-leave' : ''}"
+      aria-label={flash ? 'Session verified' : 'Verify this session'}
+      onclick={pressWidget}
+      onanimationend={finishWidget}
+    >
+      <!-- «!» amber-300 (size-4) при unverified; «✓» #34c759 (size-4) при flash -->
+    </button>
+  {/if}
+  <button
+    class="flex size-7 items-center justify-center rounded-full text-[var(--text-primary)]/90 transition-colors hover:bg-white/10"
+    aria-label="New chat"
+    onclick={() => { /* wired in the rooms slice */ }}
+  >
+    <!-- карандаш (как был в старой пилюле), size-4 -->
+  </button>
+</div>
+```
+
+- **Размер**: Edit = 20px (text-sm line-height) + py-2 (16) + border 2 = **38px**. Пилюля = p-1 (8) + size-7 (28) + border 2 = **38px**. Иконки size-4.
+- **Порядок**: верификация слева, карандаш справа.
+- **Логика не меняется**: `unverified`-derived, `widgetVisible`/`flash`/`hide` = `$state`, `prevUnverified` — **plain-переменная** (см. gotcha ниже), `$effect` с `setTimeout(450)`, `pressWidget()`/`finishWidget()`. После «✓»-вспышки кнопка fade-out, пилюля сжимается до карандаша (мгновенно — `ponytail:`; плавную ширину добавить, только если юзер попросит).
+- Обработчики — обязательно **script-функции**, НЕ инлайн-стрелки в атрибуте (`onclick={() => {...}}` без обрамляющих `{…}` ломает Svelte-парсер — «unexpected block closing»).
+
+### 6.2. `src/app.css`
+
+`.session-widget-leave` keyframes — убрать `translateY(-50%)` (позиция больше не absolute), заменить на фейд+схлопывание:
+```css
+@keyframes session-widget-leave { to { opacity: 0; transform: scale(0.5); } }
+.session-widget-leave { animation: session-widget-leave 0.28s ease-out forwards; }
+```
+
+### 6.3. Тесты `src/components/RoomList.test.ts`
+
+- Добавить: карандаш `[aria-label="New chat"]` присутствует всегда (в т.ч. когда сессия верифицирована) — пилюля не исчезает целиком.
+- Существующие 4 виджет-теста (`warnButton`/`verifiedButton` по aria-label, клик → `cryptoStore.unlockVisible`, flash→advanceTimers(500)→`dispatchEvent(new AnimationEvent('animationend'))`→unmount) — **не меняются** (aria-label те же). Fake timers в `beforeEach`.
+
+### 6.4. Доки
+
+`docs/05-UI-E2EE.md` §7.4: поправить «отдельная пилюля «!» появляется» → «кнопка в общей пилюле шапки рядом с созданием чата; после верификации кнопка исчезает, пилюля сжимается». HANDOFF §5/§6 — обновить под финальное состояние.
+
+### 6.5. Коммиты
+
+1. Код: `fix(ui): restore new-chat button and merge session verify into header pill` — автор id7392x + `Co-authored-by: OpenCode <opencode-agent[bot]@users.noreply.github.com>`, подпись G.
+2. Доки: `docs(ui): correct session verify widget to a header pill` — автор `OpenCode`.
+Гейт перед каждым коммитом (check/test/lint). Пуш — только по явному «пушь».
+
+### 6.6. Svelte-грабли (записать в память, уже дважды кусались)
+
+1. `onclick={() => {...}}` в атрибуте без внешних `{ }` → `unexpected block closing tag` (парсер путает `}`). Все обработчики — в script-функции.
+2. `$state`, который читается в своём же `$effect` и там же пишется → самонвалидация: effect перезапускается, cleanup `clearTimeout` убивает только что созданный таймер. Держать «prev» в **plain-переменной** (не `$state`).
 
