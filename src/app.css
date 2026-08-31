@@ -67,6 +67,15 @@ button:active {
   transform: scale(0.96);
 }
 
+/* Pills (header pill, chip row, nav bar): pressing an inner button presses the
+   whole pill, not the icon. :has() needs a modern browser — fine for a PWA. */
+.pill:has(button:active) {
+  transform: scale(0.96);
+}
+.pill button:active {
+  transform: none;
+}
+
 /* Session-verification button: verified "✓" flashes, then fades out and
    shrinks away from the header pill. */
 @keyframes session-widget-leave {

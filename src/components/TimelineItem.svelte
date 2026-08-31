@@ -55,7 +55,7 @@
         <button
           data-verify
           onclick={() => verificationStore.verifyUser(event.sender, roomId)}
-          class="text-xs text-blue-400 hover:underline"
+          class="text-xs text-blue-400"
         >
           Verify
         </button>
@@ -64,7 +64,7 @@
         <button
           data-retry
           onclick={retry}
-          class="text-xs text-blue-400 hover:underline"
+          class="text-xs text-blue-400"
         >
           Retry
         </button>

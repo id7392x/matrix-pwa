@@ -121,14 +121,14 @@
         {/if}
         <div class="mt-4 flex justify-end gap-2">
           <button
-            class="rounded-lg border border-[var(--glass-border)] bg-white/5 px-4 py-2 text-sm text-[var(--text-primary)] hover:bg-white/10"
+            class="rounded-lg border border-[var(--glass-border)] bg-white/5 px-4 py-2 text-sm text-[var(--text-primary)]"
             onclick={() => verificationStore.cancelVerification()}
           >
             Cancel
           </button>
           {#if session.emojis.length > 0}
             <button
-              class="rounded-lg border border-red-400/40 bg-white/5 px-4 py-2 text-sm text-red-400 hover:bg-white/10"
+              class="rounded-lg border border-red-400/40 bg-white/5 px-4 py-2 text-sm text-red-400"
               onclick={() => verificationStore.mismatchSas()}
             >
               They don't match
@@ -150,7 +150,7 @@
           <button
             class="rounded-lg px-3 py-1.5 text-sm {mode === 'show'
               ? 'bg-[var(--accent-color)] font-semibold text-white'
-              : 'border border-[var(--glass-border)] bg-white/5 text-[var(--text-primary)] hover:bg-white/10'}"
+              : 'border border-[var(--glass-border)] bg-white/5 text-[var(--text-primary)]'}"
             onclick={() => (mode = 'show')}
           >
             Show my code
@@ -158,7 +158,7 @@
           <button
             class="rounded-lg px-3 py-1.5 text-sm {mode === 'scan'
               ? 'bg-[var(--accent-color)] font-semibold text-white'
-              : 'border border-[var(--glass-border)] bg-white/5 text-[var(--text-primary)] hover:bg-white/10'}"
+              : 'border border-[var(--glass-border)] bg-white/5 text-[var(--text-primary)]'}"
             onclick={() => (mode = 'scan')}
           >
             Scan a code
@@ -218,7 +218,7 @@
         {/if}
         <div class="mt-4 flex justify-end gap-2">
           <button
-            class="rounded-lg border border-[var(--glass-border)] bg-white/5 px-4 py-2 text-sm text-[var(--text-primary)] hover:bg-white/10"
+            class="rounded-lg border border-[var(--glass-border)] bg-white/5 px-4 py-2 text-sm text-[var(--text-primary)]"
             onclick={() => verificationStore.cancelVerification()}
           >
             Cancel

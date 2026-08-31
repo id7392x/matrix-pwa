@@ -3,7 +3,6 @@
   import { uiStore } from '$stores/uiStore.svelte'
   import { cryptoStore } from '$stores/cryptoStore.svelte'
 
-  import SecurityBanner from './crypto/SecurityBanner.svelte'
   import RoomListItem from './RoomListItem.svelte'
 
   // ponytail: neutral filter chips; wired to room folders (m.tag) in the folders slice.
@@ -65,16 +64,9 @@
     <h2
       class="absolute left-1/2 flex -translate-x-1/2 items-center gap-1.5 text-lg font-semibold text-[var(--text-primary)]"
     >
-      <svg viewBox="0 0 20 20" class="size-4 text-[var(--text-primary)]/60" fill="currentColor" aria-hidden="true">
-        <path
-          clip-rule="evenodd"
-          d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-          fill-rule="evenodd"
-        ></path>
-      </svg>
       Chats
     </h2>
-    <div class="flex items-center gap-0.5 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] p-1 backdrop-blur-[16px]">
+    <div class="pill flex items-center gap-0.5 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] p-1 backdrop-blur-[16px]">
       {#if widgetVisible && (unverified || flash || hide)}
         <button
           class="flex size-7 items-center justify-center rounded-full {hide ? 'session-widget-leave' : ''}"
@@ -95,7 +87,7 @@
       {/if}
       <!-- ponytail: new-chat is wired in the rooms slice. -->
       <button
-        class="flex size-7 items-center justify-center rounded-full text-[var(--text-primary)]/90 transition-colors hover:bg-white/10"
+        class="flex size-7 items-center justify-center rounded-full text-[var(--text-primary)]/90"
         aria-label="New chat"
         onclick={() => { /* wired in the rooms slice */ }}
       >
@@ -109,8 +101,6 @@
       </button>
     </div>
   </header>
-
-  <SecurityBanner />
 
   <main class="min-h-0 flex-grow overflow-y-auto pb-40">
     {#if roomStore.sortedRooms.length === 0}
@@ -133,14 +123,14 @@
     class="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 bg-gradient-to-t from-[var(--background)] from-70% via-[var(--background)]/90 to-transparent pb-6 pt-4"
   >
     <div
-      class="no-scrollbar pointer-events-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-2 overflow-x-auto rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3 py-1.5 backdrop-blur-[16px]"
+      class="pill no-scrollbar pointer-events-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-2 overflow-x-auto rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3 py-1.5 backdrop-blur-[16px]"
     >
       {#each chips as chip, i (chip)}
         <!-- ponytail: static until the folders slice lands. -->
         <button
           class="whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors {i === 0
             ? 'bg-white/10 text-white'
-            : 'text-[var(--text-primary)]/70 hover:bg-white/5'}"
+            : 'text-[var(--text-primary)]/70'}"
           aria-label={`Filter: ${chip}`}
           onclick={() => { /* wired in the folders slice */ }}
         >
@@ -150,12 +140,12 @@
     </div>
     <div class="pointer-events-auto flex items-center justify-center gap-2">
       <nav
-        class="flex h-12 items-center gap-1.5 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-1.5 shadow-xl backdrop-blur-[16px]"
+        class="pill flex h-12 items-center gap-1.5 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-1.5 shadow-xl backdrop-blur-[16px]"
         aria-label="Main navigation"
       >
         <!-- ponytail: contacts/settings screens are later slices. -->
         <button
-          class="flex size-10 items-center justify-center rounded-full text-[var(--text-primary)]/70 transition-colors hover:bg-white/10"
+          class="flex size-10 items-center justify-center rounded-full text-[var(--text-primary)]/70"
           aria-label="Contacts"
           onclick={() => { /* wired in the contacts slice */ }}
         >
@@ -179,7 +169,7 @@
           </svg>
         </button>
         <button
-          class="flex size-10 items-center justify-center rounded-full text-[var(--text-primary)]/70 transition-colors hover:bg-white/10"
+          class="flex size-10 items-center justify-center rounded-full text-[var(--text-primary)]/70"
           aria-label="Settings"
           onclick={() => { /* wired in the settings slice */ }}
         >

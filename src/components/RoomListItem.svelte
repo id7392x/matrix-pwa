@@ -27,7 +27,7 @@
 
 <li>
   <button
-    class="flex w-full cursor-pointer items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--accent-color)]/40"
+    class="flex w-full cursor-pointer items-center gap-3 px-4 py-2 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--accent-color)]/40"
     aria-label={[room.name, time, preview, room.unreadCount > 0 ? `${room.unreadCount} unread` : '']
       .filter(Boolean)
       .join(', ')}

@@ -134,7 +134,7 @@
             aria-label={showPassword ? 'Hide password' : 'Show password'}
             aria-pressed={showPassword}
             onclick={() => (showPassword = !showPassword)}
-            class="absolute inset-y-0 right-1 flex w-11 items-center justify-center text-[var(--text-primary)]/50 hover:text-[var(--text-primary)]"
+            class="absolute inset-y-0 right-1 flex w-11 items-center justify-center text-[var(--text-primary)]/50"
           >
             {#if showPassword}
               <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -158,7 +158,7 @@
 
       <button
         type="submit"
-        class="mt-1 h-14 rounded-full bg-[var(--accent-color)] text-base font-semibold text-white shadow-[0_8px_24px_rgba(0,122,255,0.35)] transition hover:bg-[#0a84ff] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/50"
+        class="mt-1 h-14 rounded-full bg-[var(--accent-color)] text-base font-semibold text-white shadow-[0_8px_24px_rgba(0,122,255,0.35)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/50"
       >
         Sign in
       </button>
@@ -176,7 +176,7 @@
           <button
             type="button"
             onclick={() => void handleOidc()}
-            class="flex h-12 items-center justify-center gap-2 rounded-full border border-[var(--glass-border)] bg-white/5 px-4 text-sm font-medium text-[var(--text-primary)] transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/50"
+            class="flex h-12 items-center justify-center gap-2 rounded-full border border-[var(--glass-border)] bg-white/5 px-4 text-sm font-medium text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/50"
           >
             Sign in with SSO
           </button>
@@ -186,7 +186,7 @@
           <button
             type="button"
             onclick={() => handleSso(provider.id)}
-            class="flex h-12 items-center justify-center gap-2 rounded-full border border-[var(--glass-border)] bg-white/5 px-4 text-sm font-medium text-[var(--text-primary)] transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/50"
+            class="flex h-12 items-center justify-center gap-2 rounded-full border border-[var(--glass-border)] bg-white/5 px-4 text-sm font-medium text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/50"
           >
             Sign in with {provider.name}
           </button>

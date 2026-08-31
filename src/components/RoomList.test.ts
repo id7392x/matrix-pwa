@@ -35,7 +35,6 @@ describe('RoomList session-verification widget', () => {
     cryptoStore.statusLoaded = true
     cryptoStore.secretStorageReady = true
     cryptoStore.crossSigningReady = true
-    cryptoStore.bannerDismissed = true
   })
 
   afterEach(() => {

@@ -29,20 +29,18 @@
   <main class="flex h-screen items-center justify-center p-4">
     <LoginScreen />
   </main>
-{:else if screen.name === 'rooms'}
-  <main class="h-screen">
-    <RoomList />
-  </main>
 {:else}
-  <main class="flex h-screen">
-    <section class="hidden w-80 border-r border-[var(--glass-border)] md:block">
-      <RoomList />
-    </section>
-    {#key screen.roomId}
-      <section class="min-w-0 flex-1 animate-[chat-enter_0.22s_ease-out]">
-        <Timeline roomId={screen.roomId} />
-      </section>
-    {/key}
+  <!-- Room list stays mounted beneath; the chat opens as a full-screen layer on
+       top of it (activity overlay) and fades in — list state is preserved. -->
+  <main class="relative h-screen">
+    <RoomList />
+    {#if screen.name === 'room'}
+      {#key screen.roomId}
+        <div class="absolute inset-0 z-10 animate-[chat-enter_0.22s_ease-out] bg-[var(--background)]">
+          <Timeline roomId={screen.roomId} />
+        </div>
+      {/key}
+    {/if}
   </main>
 {/if}
 
