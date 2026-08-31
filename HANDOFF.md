@@ -5,7 +5,7 @@
 
 ## 1. Общее состояние репозитория
 
-- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, **HEAD: `ff008ea`**, **в `origin` запушено юзером**: `1c776b8` (roadmap), `282dfa1` (LICENSE AGPL-3.0), `a7b838e` (README EN). ⚠️ **18 коммитов впереди `origin` (локальные, пуш по явному подтверждению):** verify-UI `acf5106`, `fd68626`; e2ee-фикс `05a12fe`; UI-пуш `380f576`–`683dceb` + header-pill фикс `ff008ea` (код, автор id7392x, подпись G); доки (автор OpenCode): `db99e57`, `6d2c47c`, `a61c4c1`, `493f3aa`, `356e845`, `8a9621b`, `fe1aedc`, `a7eae1d`. Все коммиты подписаны SSH (GitHub: Verified). История переписана: `id7392x` вычищен из .md файлов, author/committer fields сохранены. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
+- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, **HEAD: `1c95777`**, история — оригинальные **111 коммитов** (`backup/pre-rebase-111`). ⚠️ **Сквош 111→16 отменён**: `main` откачен на изначальную историю, в последний док-коммит влиты правила (см. ниже). Текущее состояние чуть впереди `origin/main` (`0485d18`): amend переписал последний док-коммит, поэтому пуш потребует **force** (`--force-with-lease`), по явному «пушь». Копия отменённой 16-коммитной истории сохранена в ветке `backup/pre-rebase-16` (на случай «потом сделаем squash»). Правила коммитов/авторства — в `COMMITS.md`, правило «История / group-blocks» (новый блок vs `--amend`, доки-хвосты аменд-ить в фич-коммит, периодический `rebase -i`, force-push только с подтверждения) — в `AGENTS.md` Guardrails.
 - Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` **317/317** (22 файла), `pnpm run lint` чисто. Pre-commit хук (simple-git-hooks) прогоняется автоматически на каждом коммите.
 - **GitHub Ruleset «Protect main»**: люди — только через PR (1 approval + статус-чек `gate` + signed commits); `<repo-owner>` — bypass на прямой push. ⚠️ Проверить вручную во вкладке Bypass: там должен быть ТОЛЬКО `<repo-owner>`.
 - **GitHub Actions** (`acd2798`): гейт `pnpm check/test/lint` на push и pull_request.
@@ -16,16 +16,20 @@
 ### 2.1. Стек и структура
 
 Стек — `AGENTS.md` §Стек. Алиасы: `$lib` (`src/lib`), `$components`, `$storage`, `$sync`, `$crypto`, `$stores`, `$types`.
-Документация-источники: `docs/00-PRINCIPLES.md`, `docs/01-ARCHITECTURE.md`, `docs/02-DATA-MODEL.md`, `docs/03-REFERENCE-CODE.md`, `docs/04-ROADMAP.md`.
+Документация-источники: `docs/00-PRINCIPLES.md`, `docs/01-ARCHITECTURE.md`, `docs/02-DATA-MODEL.md`, `docs/04-ROADMAP.md`. (Типы/схема/сигнатуры — в кодe `src/*` и codebase-memory графе; `03-REFERENCE-CODE.md` удалён как дубликат кода.)
 
 ### 2.2. Команды и правила
 
-Команды и guardrails — в `AGENTS.md`. Сжато: `check` + `test` + `lint` = гейт (100% зелёный перед коммитом). Формат, scopes, авторство — `COMMITS.md`.
+Команды и guardrails — в `AGENTS.md`. Сжато: `check` + `test` + `lint` = гейт (100% зелёный перед коммитом). Формат, scopes, авторство — `COMMITS.md`. **Коммиты — только по явному требованию и согласию пользователя** (не самостоятельно, без мусорных/частых коммитов); пуш в `origin` — отдельно по «пушь».
 - После UI-изменений: проверь в браузере (`openchamber_web → browser.*`) если dev-сервер запущен.
 
-### 2.3. Скиллы проекта
+### 2.3. Скиллы и окружение агента
 
-Активные скиллы: `git-commit`, `ponytail` (по умолчанию), `boy-scout-rule`, `code-review`, `detect-stack`, `writing-for-agents`, `solid`, `separation-of-concerns`, `e2ee` (проектный, `.opencode/skills/e2ee/`).
+**Проектные скиллы** (в репо): `git-commit`, `e2ee` (`.opencode/skills/e2ee/`), `code-review`, `boy-scout-rule`, `detect-stack`, `writing-for-agents`, `solid`, `separation-of-concerns`.
+
+**Окружение dev** (глобальные плагины юзера, `~/.config/opencode/opencode.jsonc`; у контрибьютора может не быть — не контракт репо): `ponytail` («не пиши лишнего», минимальный работающий код), `caveman` («пиши короче»). MCP-серверы: `codebase-memory`, `context7`, `sveltejs`, `stitch`, `websearch`, `crawl4ai`.
+
+- **Дефолтный тон:** лаконично (caveman) + минимально по коду (ponytail). Полный/развёрнутый стиль — по явному запросу.
 
 ### 2.4. Прогресс по слайсам (подробно — `docs/04-ROADMAP.md`)
 
@@ -39,7 +43,7 @@
 | 5 | E2EE Cold Start + re-decryption | `<repo-owner>` | **выполнен** (локально; см. §5) |
 | 6 | История, пагинация, retention, медиа-кэш | свободен | **следующий** |
 | 7 | Multi-tab + Lazy-sync | свободен | запланирован |
-| Дизайн-трек (Д1–Д2) | горизонтальный, не вертикальный слайс | свободен | **ревью выполнено** (см. `docs/DESIGN.md`); **UI-пуш идёт** по `DESIGN.md` §8: токены (380f576) → Вход (66da661) → **главный экран** (`c5b8f54`+`ccc4f14`: аватары, превью, нижняя панель) → **интерактив** (`683dceb`: верификация сессии, press-фидбек, резиновые чипы, навбар 48px) → **пилюля «верификация + создание чата»** (`ff008ea`) → **«Переписка» `aab4de2b` (следующий)** → verify-модалка |
+| Дизайн-трек (Д1–Д2) | горизонтальный, не вертикальный слайс | свободен | **ревью выполнено** (см. `docs/03-DESIGN.md`); **UI-пуш идёт** по `03-DESIGN.md` §8: токены (380f576) → Вход (66da661) → **главный экран** (`c5b8f54`+`ccc4f14`: аватары, превью, нижняя панель) → **интерактив** (`683dceb`: верификация сессии, press-фидбек, резиновые чипы, навбар 48px) → **пилюля «верификация + создание чата»** (`ff008ea`) → **«Переписка» `aab4de2b` (следующий)** → verify-модалка |
 
 ## 3. Общие знания (фактология, хвосты, нюансы)
 
@@ -76,15 +80,15 @@
 - I9: Typography scale absent
 - I10: No empty state design
 
-**План implementation — `docs/DESIGN.md`:** Phase 1 (Design Token System) → Phase 2 (Dark/Light Mode) → Phase 3 (Accessibility Fixes) → Phase 4 (Component Updates) → Phase 5 (Empty & Loading States).
+**План implementation — `docs/03-DESIGN.md`:** Phase 1 (Design Token System) → Phase 2 (Dark/Light Mode) → Phase 3 (Accessibility Fixes) → Phase 4 (Component Updates) → Phase 5 (Empty & Loading States).
 
-**Статус:** ревью готово, план в `docs/DESIGN.md`. Ожидает подтверждения на implementation.
+**Статус:** ревью готово, план в `docs/03-DESIGN.md`. Ожидает подтверждения на implementation.
 
 ## 5. Трек `<repo-owner>` — следующий шаг: Слайс 6 — история, пагинация, retention, медиа (`docs/04-ROADMAP.md` §9)
 
 **Выполнено (сводка):** слайсы 1–5, ревью-батч (`2dd3072`–`409ea1d`), sync race fix (`ea53bf3`), e2ee echo dedup (`2ce4902`), OIDC SSO (`a8987b8`–`275b946`), Слайс 5 (5.1a–d) + UTD-backup фиксы, UI-пуш (см. ниже) — **запушены только слайсы 1–5 и ревью-батч**; локально ждут пуша verify-UI (`acf5106`, `fd68626`), доки и UI-пуш 380f576–683dceb.
 
-**UI-пуш по `DESIGN.md` §8 (2026-08-31, локально, ждёт пуша):**
+**UI-пуш по `03-DESIGN.md` §8 (2026-08-31, локально, ждёт пуша):**
 - `380f576` — токены Ether UI в `app.css` (@theme #111/#007aff/Inter, `.glass-panel` blur16+0.5px);
 - `66da661` — `LoginScreen` по макету «Вход» (glass-карта, toggle пароля, CTA 56px, role=alert; тесты на toggle);
 - `c5b8f54` — **data**: `SyncJoinedRoom` += `avatarUrl`+`lastMessage`; `toSyncJoinedRoom(room, isDirect, baseUrl)` — комнатная thumbnail `getAvatarUrl(baseUrl,112,112,'crop',false)`, для DM фолбэк на аватар партнёра (`room.getMember(dmPartner)?.getAvatarUrl(...)`); `lastMessage` = реверс-скан live-timeline (m.room.message body; `m.room.encrypted`→`'Encrypted message'`); персист в `SyncOrchestrator.upsertRoom`, `RoomModel.lastMessage`, `RoomDto.lastMessage`. SDK-нюанс: `Room.getAvatarUrl` НЕ фолбэчится на аватар члена — фолбэк явный;
@@ -111,7 +115,7 @@
 ### 5.1. Слайс 6 — разбивка, сложность и объём
 
 Предусловие обязательное, отдельной задачей (ДО рендера `formattedBody`):
-- **6.0 Санитизация + CSP** (небольшая, критичная): DOMPurify для `formatted_body` (`03-REFERENCE-CODE.md` §3 `EventDto.formattedBody`), строгий CSP по `01-АРХ §7` (prod-заголовки или prod-only `<meta>`; НЕ статический CSP в dev — ломает HMR), рендер `{@html}` только после санитизации. **Сейчас в коде НЕТ ни одного `{@html}` для пользовательского контента** — единственный `{@html qrSvg}` — безопасный локальный SVG (uqr-биты), не трогать. XSS-поверхности пока нет.
+- **6.0 Санитизация + CSP** (небольшая, критичная): DOMPurify для `formatted_body` (`src/types/dto.ts` `EventDto.formattedBody`), строгий CSP по `01-АРХ §7` (prod-заголовки или prod-only `<meta>`; НЕ статический CSP в dev — ломает HMR), рендер `{@html}` только после санитизации. **Сейчас в коде НЕТ ни одного `{@html}` для пользовательского контента** — единственный `{@html qrSvg}` — безопасный локальный SVG (uqr-биты), не трогать. XSS-поверхности пока нет.
 
 Подзадачи (независимые, каждая — своя горизонталь/свой коммит):
 | Подзадача | Объём | Сложность | Что есть / чего нет |

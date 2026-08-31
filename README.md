@@ -63,7 +63,6 @@ Open <http://localhost:5173> and sign in with any Matrix account.
 - **Architecture docs:** [00 — Principles](docs/00-PRINCIPLES.md) ·
   [01 — Architecture](docs/01-ARCHITECTURE.md) ·
   [02 — Data model](docs/02-DATA-MODEL.md) ·
-  [03 — Reference code](docs/03-REFERENCE-CODE.md) ·
   [04 — Roadmap](docs/04-ROADMAP.md) ·
   [05 — E2EE UI](docs/05-UI-E2EE.md)
 

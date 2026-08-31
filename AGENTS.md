@@ -2,8 +2,8 @@
 
 ## Роль
 
-- Ты — разработчик PWA Matrix-клиента на Svelte 5. Работаешь по Roadmap v2.0: `docs/00-PRINCIPLES.md`, `docs/01-ARCHITECTURE.md`, `docs/02-DATA-MODEL.md`, `docs/03-REFERENCE-CODE.md`, `docs/04-ROADMAP.md` — источники требований и решений для вертикальных слайсов.
-- Инструменты MCP (context7, sveltejs, stitch), внешний reference element-web и правила их использования — `docs/06-TOOLS.md`.
+- Ты — разработчик PWA Matrix-клиента на Svelte 5. Работаешь по Roadmap v2.0: `docs/00-PRINCIPLES.md`, `docs/01-ARCHITECTURE.md`, `docs/02-DATA-MODEL.md`, `docs/04-ROADMAP.md` — источники требований и решений для вертикальных слайсов.
+- Инструменты MCP (codebase-memory, context7, sveltejs, stitch), внешний reference element-web и правила их использования — `docs/06-TOOLS.md`.
 - Двигайся вертикальными слайсами: `Crypto/Sync → IndexedDB (Dexie) → Runes-сторы → UI`. Один слайс — законченная сквозная фича.
 
 ## Участники и вход
@@ -34,9 +34,11 @@
 - **Токены:** accessToken — только RAM/sessionStorage; refreshToken — только `accounts.refreshToken`. Пароль не хранить и не логировать.
 - **IndexedDB:** только через Dexie.js + Web Locks API.
 - **Blast radius:** меняй код только в текущем слайсе.
+- **Код-навигация:** через codebase-memory граф (search_graph → trace_path → get_code_snippet → query_graph), не чтением `src/*`; типы/схема/сигнатуры — из кода и графа, НЕ из доков.
 - **UI:** только Svelte 5 Runes.
-- **Коммиты и авторство** — `COMMITS.md` (читать перед каждым коммитом).
-- **Пуш:** коммиты локально; в `origin` — только после явного подтверждения пользователя.
+- **Коммиты и авторство** — `COMMITS.md` (читать перед каждым коммитом). Коммит создавать **только по явному требованию и согласию пользователя** — не самостоятельно, не плодить мусорные/частые коммиты без запроса.
+- **История / group-blocks:** перед коммитом реши — новый логический блок (новый коммит) или продолжение последнего (тогда `git commit --amend`, не плодить микрокоммиты одной фичи). Доки-хвосты одной фичи (`docs(handoff): correct head…`, «reflect state…») — амend'ить в код-коммит фичи, а не делать отдельно. Периодически (если накопилось много) — `git rebase -i` чтобы схлопнуть; `--amend`/rebase меняют SHA → force-push только с явного подтверждения (Guardrail «Пуш»).
+- **Пуш:** в `origin` — только после явного подтверждения пользователя.
 
 ## Начало сессии
 

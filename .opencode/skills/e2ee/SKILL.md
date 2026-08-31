@@ -12,11 +12,11 @@ metadata:
 - Working on `src/crypto/e2ee.ts` or any file involving `initRustCrypto`
 - Writing tests for encrypted events, UTD states, or re-decryption
 - Debugging crypto init order, storePrefix isolation, or WASM loading
-- Touching `IE2EEService` interface or `MockRustCrypto`
+- Touching `E2EEHandle` / `createE2EE` or the fake crypto client in tests
 
 ## Architecture
 
-- **Interface:** `IE2EEService` (`docs/03-REFERENCE-CODE.md` §4.3)
+- **Interface:** `E2EEHandle` (src/crypto/e2ee.ts)
 - **Implementation:** `src/crypto/e2ee.ts` (Слайс 5)
 - **WASM:** Vodozemac via `matrix-js-sdk`, lazy loaded via `initRustCrypto`
 - **Store prefix:** `matrix-js-sdk:crypto:${userId}:${deviceId}` — per account+device isolation, shared store FORBIDDEN (00 §3.3.1)
@@ -52,7 +52,7 @@ Event arrives encrypted, no key
 
 **WASM does NOT load in Vitest.** This is a hard constraint, not a hack.
 
-- Unit tests: use `MockRustCrypto` from `matrix-js-sdk` or mock `IE2EEService`
+- Unit tests: mock `CryptoApi` (`as unknown as CryptoApi`) from `matrix-js-sdk`; fake client/verifier in `e2ee.test.ts`
 - TDD: write mock contract test first, then implementation
 - `vite.config.ts` requirements (DO NOT REMOVE):
   - `resolve.conditions: ['browser']`
@@ -72,6 +72,6 @@ Event arrives encrypted, no key
 ## References
 
 - `docs/04-ROADMAP.md` §8 — full spec (TDD contracts, DoD, key decisions)
-- `docs/03-REFERENCE-CODE.md` §4.3 — `IE2EEService` interface
+- `src/crypto/e2ee.ts` — `createE2EE` / `E2EEHandle` (Слайс 5, TDD-contracts из §8)
 - `docs/00-PRINCIPLES.md` §3.3.1 — storePrefix isolation rule
 - `docs/01-ARCHITECTURE.md` §4 — E2EE architecture layer

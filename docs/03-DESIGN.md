@@ -1,4 +1,4 @@
-# DESIGN.md — Design Review & Guidelines
+# 03-DESIGN.md — Design Review & Guidelines
 
 > Last updated: 2026-08-25
 > Scope: LoginScreen, RoomList, RoomListItem, Timeline, TimelineItem, App.svelte

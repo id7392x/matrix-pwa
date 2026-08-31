@@ -91,10 +91,9 @@ Filter для Lazy-аккаунтов должен включать `to_device` 
 1. `00-PRINCIPLES.md` (этот документ)  
 2. `01-ARCHITECTURE.md`  
 3. `02-DATA-MODEL.md`  
-4. `03-REFERENCE-CODE.md`  
-5. `docs/05-UI-E2EE.md` (контракты/референсы E2EE; подчиняется 00–03)  
-6. `docs/DESIGN.md` (референс для UI-слоя)  
-7. Дорожная карта (`04-ROADMAP.md`)  
+4. `03-DESIGN.md` (референс для UI-слоя)  
+5. `04-ROADMAP.md` (этапы реализации)  
+6. `05-UI-E2EE.md` (контракты/референсы E2EE; подчиняется 00–03)  
   
 ---  
   

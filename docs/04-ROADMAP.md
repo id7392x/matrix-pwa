@@ -2,7 +2,7 @@
 
 **Версия:** 1.0-ROADMAP
 **Статус:** Рабочий план реализации
-**Подчиняется:** `00-PRINCIPLES.md`, `01-ARCHITECTURE.md`, `02-DATA-MODEL.md`, `03-REFERENCE-CODE.md`
+**Подчиняется:** `00-PRINCIPLES.md`, `01-ARCHITECTURE.md`, `02-DATA-MODEL.md`
 **Приоритет:** наименьший (конкретика каждого слайса имеет силу только в рамках его выполнения и не отменяет контракты вышестоящих документов).
 
 ---
@@ -16,53 +16,40 @@
 
 ---
 
-## 2. Статус
+## 2. Статус и очередь
 
-### Выполнено и закоммичено
+> **Статус выполнения слайсов и текущий шаг — `HANDOFF.md` (единственное место правды).**
+> Здесь — только план: состав, порядок, DoD. Статус переезжает в `HANDOFF.md` при каждом падении слайса.
 
-| Слайс | Коммиты | Что сделано |
-|---|---|---|
-| Stage 0 — инфраструктура | `a033cc9`, `2eb8f02`, `633194d` | TS strict, алиасы `$lib/$storage/...`, Vitest, Tailwind glassmorphism, AGENTS.md guardrails |
-| Хранилище (схема + promote) | `a0b1a58`, `098c8a5` | Dexie-схема с составными PK, `promotePendingToSynced`, `webLock.withLock`, room store |
-| Доменный слой синхронизации | `629c6f4` | `ISyncProvider`+мок, `SyncOrchestrator`, `PendingQueueService`, `BatchedStoreManager`, `AccountManager`, DTO-типы, `matrix-js-sdk` |
-| DTO-граница комнат | `6420734` | `roomStore` отдаёт UI только `RoomDto` (`toRoomDto`) |
-| Слайс 1 — UI на моках | `57ddc4c` | `uiStore` (hash-навигация), `LoginScreen`, `RoomList`/`RoomListItem`, `Timeline`/`TimelineItem`, `App.svelte`, demo-sync `startDemoSync` |
-| Хардненинг безопасности | `8991f36`, `502ff63` | runtime-валидация `promotePendingToSynced`, guard `decodeURIComponent` в `uiStore`, `isEncrypted` из типа события |
-| Слайс 2 — `LegacySyncProvider` | `b31d7ea`, `44437f4`, `4d5123d`, `dd5a569`, `de0485a` | реальный `/sync` (адаптер `MatrixEvent`/`Room` → `SyncRawEvent`/`SyncJoinedRoom`), `startLegacySync`, restore сессии, https-fallback baseUrl, защита от malformed sync |
-| Слайс 3 — Отправка сообщений | `4eba646` | `PendingQueueService.sendMessage` (client.sendMessage + dual-path promote по `txn_id`/`unsigned.transaction_id`), optimistic UI (`sending`→`synced`), `failed`+кнопка Retry, тxnId в `EventDto` |
-| Слайс 4 — Авторизация | (см. §7.5) | вход по паролю (`authService.login`, `m.login.password` + `refresh_token`), auto-refresh через `tokenRefreshFunction` (ротация), `restoreSession` из refresh-токена, `LoginScreen` с полем пароля, `pendingQueue.restore()` + GC доставленных сирот, logout по `Session.logged_out` |
-| Ревью-батч (фиксы по итогам ревью домена) | `2dd3072`, `6bcc411`, `aeb577e`, `409ea1d` | echo всегда promote (stale txnId не осиротит), `restore()` переотправляет pending, последний `lastEventTs` не затирается пустым timeline, per-event try/catch в `handleSync`, state-события не попадают в ленту, batchedStore upsert-by-id + отмена pending flush, история навигации чистится при logout, seed refresh-токена без deadlock, normalizeHomeserver (trim + trailing slash), единый `toEventDto`/`SyncState`, удаление мёртвого кода (`MockSyncProvider`, `GlassCard`, `switchAccount`, `getRefreshToken`, `roomStore.load/upsert/updateUnread`, `batchedStore.upsertByTxnId`) |
+**Порядок слайсов** (фиксирован, см. §11): `Crypto/Sync → IndexedDB → Runes-сторы → UI`. Вертикальный слайс = сквозная фича от источника до UI.
 
-## 3. Очередь слайсов
-
-| # | Слайс | Зависимости | Владелец | Статус |
-|---|---|---|---|---|
-| 1 | UI на моках (логин, комнаты, лента) | доменный слой, `RoomDto`-граница | общий | **выполнен** |
-| 2 | `LegacySyncProvider` (реальный `/sync`) | слайс 1 | `<owner>` | **выполнен** |
-| 3 | Отправка сообщений (`/send` + dual-path) | слайсы 1–2 | `<owner>` | **выполнен** |
-| 4 | Авторизация: пароль + refresh-токен (+ SSO) | слайсы 1–3 | `<owner>` | **выполнен** (базовый пароль; SSO — подзадача) |
-| 5 | E2EE Cold Start + re-decryption | слайсы 2, 4 | `<owner>` | **выполнен** |
-| 6 | История, пагинация, retention, медиа-кэш | слайсы 2–4 | свободен | **следующий** |
-| 7 | Multi-tab (Master/Slave) + Lazy-sync | слайсы 2, 4, 5 | свободен | запланирован |
-| 8 | Управление комнатами: создание (DM/группа), join/leave/forget, invite, rename/avatar | слайсы 2–4 | свободен | запланирован (после 6) |
-| 9 | Папки/разделы чатов (accountData `m.tag`; Spaces — опция) | слайсы 2–4, 8 | свободен | запланирован (после 8) |
-
+| # | Слайс | Зависимости | Владелец |
+|---|---|---|---|
+| 1 | UI на моках (логин, комнаты, лента) | доменный слой, `RoomDto`-граница | общий |
+| 2 | `LegacySyncProvider` (реальный `/sync`) | слайс 1 | `<owner>` |
+| 3 | Отправка сообщений (`/send` + dual-path) | слайсы 1–2 | `<owner>` |
+| 4 | Авторизация: пароль + refresh-токен (+ SSO) | слайсы 1–3 | `<owner>` |
+| 5 | E2EE Cold Start + re-decryption | слайсы 2, 4 | `<owner>` |
+| 6 | История, пагинация, retention, медиа-кэш | слайсы 2–4 | свободен |
+| 7 | Multi-tab (Master/Slave) + Lazy-sync | слайсы 2, 4, 5 | свободен |
+| 8 | Управление комнатами: создание (DM/группа), join/leave/forget, invite, rename/avatar | слайсы 2–4 | свободен |
+| 9 | Папки/разделы чатов (accountData `m.tag`; Spaces — опция) | слайсы 2–4, 8 | свободен |
 
 - **Трек после MVP (не слайс):** видеокомнаты (MatrixRTC, MSC4143/4195 + LiveKit SFU) — требуют серверной инфраструктуры вне приложения, см. §14.
 - **Порядок следующих шагов:** Слайс 6 (история/пагинация/медиа, + DOMPurify/CSP до первого `{@html}`) → Слайс 8 (управление комнатами) → Слайс 7 (Multi-tab/Lazy-sync) → Слайс 9 (папки/разделы) → Дизайн-трек Д2 (адаптация под проект) → трек видеокомнат (после MVP, §14).
 
-### 3.1. Дизайн-трек (горизонтальный, не вертикальный слайс)
+## 3. Дизайн-трек (горизонтальный, не вертикальный слайс)
 
 | # | Задача | Статус |
 |---|---|---|
 | Д1 | Дизайн-референсы: генерация внешними ИИ-агентами (вне репозитория) | не начат |
-| Д2 | Адаптация под проект: дизайн-токены, компонентная база, рестайл всех экранов | **ревью выполнено** (см. `docs/DESIGN.md`) |
+| Д2 | Адаптация под проект: дизайн-токены, компонентная база, рестайл всех экранов | **ревью выполнено** (см. `docs/03-DESIGN.md`) |
 
-- Горизонтален: трогает все экраны сразу, поэтому не входит в цепочку вертикальных слайсов 1–6 и не ограничен их blast radius; контракты 1–6 не меняет.
+- Горизонтален: трогает все экраны сразу, не входит в цепочку вертикальных слайсов 1–6 и не ограничен их blast radius; контракты 1–6 не меняет.
 - Проводить при наличии базовых экранов (Слайс 1 ✓) и, желательно, реальных данных (после Слайса 2).
 - DoD Д2: экраны соответствуют утверждённым референсам, дизайн-токены заведены в коде, гейт зелёный, коммит, обновление `HANDOFF-<ник>.md`.
 
-**Ревью компонентов выполнено (2026-08-25):** найдены 4 критических (A1–A4) и 6 улучшений (I5–I10) в `LoginScreen`, `RoomList`, `RoomListItem`, `Timeline`, `TimelineItem`, `App.svelte`. Полный отчёт и план implementations — в `docs/DESIGN.md`.
+**Ревью компонентов выполнено (2026-08-25):** найдены 4 критических (A1–A4) и 6 улучшений (I5–I10) в `LoginScreen`, `RoomList`, `RoomListItem`, `Timeline`, `TimelineItem`, `App.svelte`. Полный отчёт и план implementations — в `docs/03-DESIGN.md`.
 
 ---
 
@@ -223,15 +210,15 @@ E2EE по 00-PRINCIPLES §3.3 и 01-АРХ §4: строгий порядок `c
 - Обработка событий `/sync` — только после завершения `initRustCrypto`.
 - Content-семантика зашифрованных событий: при `Event.decrypted` `EventModel.content` переписывается расшифрованным, `isEncrypted: true`, `decryptionError` при UTD. После расшифровки шифр-конверт (`m.room.encrypted` content) в `events` не хранится (минимизация персистенции).
 - UTD: Temporary (авто-запрос `m.room_key_request`) → Permanent через 30 сек без ответа (плашка в UI) → Re-decryption при приходе ключей (подписка `Event.decrypted` → повторный проход → обновление DTO через `BatchedStoreManager`).
-- `EventModel.decryptionError`, `isEncrypted`, `content` уже расшифрованный — контракт готов (03 §1).
-- `$crypto/e2ee.ts` — реализация `IE2EEService` (03 §4.3).
-- Юнит-тесты crypto идут через мок `IE2EEService`/`MockRustCrypto` из `matrix-js-sdk`: WASM-бинарник и воркеры Rust Crypto не загружаются в среде Vitest/happy-dom, поэтому реальная интеграция проверяется вне юнит-тестов. Это обязательное требование слайса, а не опциональный хак.
+- `EventModel.decryptionError`, `isEncrypted`, `content` уже расшифрованный — контракт готов (02 §2, `src/storage/db.ts`).
+- `$crypto/e2ee.ts` — реализация: `createE2EE` возвращает `E2EEHandle` (Слайс 5).
+- Юнит-тесты crypto идут через мок CryptoApi (`as unknown as CryptoApi`) из `matrix-js-sdk`: WASM-бинарник и воркеры Rust Crypto не загружаются в среде Vitest/happy-dom, поэтому реальная интеграция проверяется вне юнит-тестов. Это обязательное требование слайса, а не опциональный хак.
 
 ### 8.3. TDD-контракт
 
-1. Cold Start порядок: события не обрабатываются до готовности crypto (флаг готовности). Проверяется на моке `IE2EEService`.
-2. UTD-переход: таймер 30с Temporary → Permanent. Проверяется на моке `IE2EEService`.
-3. Re-decryption: приход ключа → событие со статусом UTD пере-расшифровывается и перепушивается в сторы. Проверяется на моке `IE2EEService`.
+1. Cold Start порядок: события не обрабатываются до готовности crypto (флаг готовности). Проверяется на моке CryptoApi.
+2. UTD-переход: таймер 30с Temporary → Permanent. Проверяется на моке CryptoApi.
+3. Re-decryption: приход ключа → событие со статусом UTD пере-расшифровывается и перепушивается в сторы. Проверяется на моке CryptoApi.
 
 ### 8.4. DoD
 
