@@ -5,7 +5,7 @@
 
 ## 1. Общее состояние репозитория
 
-- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, **HEAD: `ccc4f14`**, **в `origin` запушено юзером**: `1c776b8` (roadmap), `282dfa1` (LICENSE AGPL-3.0), `a7b838e` (README EN). ⚠️ **8 коммитов впереди `origin` (локальные, пуш по явному подтверждению):** `acf5106`, `fd68626` (UI verify), `6d2c47c`, `a61c4c1`, `493f3aa` (docs), `380f576`, `66da661`, `c5b8f54`, `ccc4f14` (UI-пуш, см. ниже). Все коммиты подписаны SSH (GitHub: Verified). История переписана: `id7392x` вычищен из .md файлов, author/committer fields сохранены. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
+- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, **HEAD: `356e845`**, **в `origin` запушено юзером**: `1c776b8` (roadmap), `282dfa1` (LICENSE AGPL-3.0), `a7b838e` (README EN). ⚠️ **13 коммитов впереди `origin` (локальные, пуш по явному подтверждению):** verify-UI `acf5106`, `fd68626`; e2ee-фикс `05a12fe`; доки `db99e57`, `6d2c47c`, `a61c4c1`, `493f3aa`, `356e845`; UI-пуш `380f576`–`ccc4f14` (см. ниже). Все коммиты подписаны SSH (GitHub: Verified). История переписана: `id7392x` вычищен из .md файлов, author/committer fields сохранены. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
 - Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` **302/302** (21 файл), `pnpm run lint` чисто. Pre-commit хук (simple-git-hooks) прогоняется автоматически на каждом коммите.
 - **GitHub Ruleset «Protect main»**: люди — только через PR (1 approval + статус-чек `gate` + signed commits); `<repo-owner>` — bypass на прямой push. ⚠️ Проверить вручную во вкладке Bypass: там должен быть ТОЛЬКО `<repo-owner>`.
 - **GitHub Actions** (`acd2798`): гейт `pnpm check/test/lint` на push и pull_request.
