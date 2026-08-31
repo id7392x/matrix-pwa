@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mount } from 'svelte'
+import { mount, tick } from 'svelte'
 
 import LoginScreen from '$components/LoginScreen.svelte'
 import { login, discoverSsoProviders, ssoLogin, discoverOidcAuth, oidcLogin } from '$lib/authService'
@@ -34,6 +34,23 @@ describe('LoginScreen', () => {
     expect(target.querySelector('input[name="password"]')).not.toBeNull()
     expect(target.querySelector('input[name="deviceId"]')).toBeNull()
     expect(target.querySelector('input[name="accessToken"]')).toBeNull()
+  })
+
+  it('toggles password visibility via the eye button', async () => {
+    const target = document.createElement('div')
+    mount(LoginScreen, { target })
+
+    const passwordInput = target.querySelector('input[name="password"]') as HTMLInputElement
+    const toggle = [...target.querySelectorAll('button')].find(
+      (b) => b.getAttribute('aria-label') === 'Show password',
+    )
+    expect(toggle).toBeDefined()
+    expect(passwordInput.type).toBe('password')
+
+    toggle!.dispatchEvent(new Event('click', { bubbles: true }))
+    await tick()
+    expect(passwordInput.type).toBe('text')
+    expect(toggle!.getAttribute('aria-label')).toBe('Hide password')
   })
 
   it('submits the password via authService.login and switches to rooms', async () => {
@@ -116,10 +133,12 @@ describe('LoginScreen', () => {
     mount(LoginScreen, { target })
 
     await vi.waitFor(() => {
-      expect(target.querySelector('button[type="button"]')).not.toBeNull()
+      expect(target.textContent).toContain('Sign in with Apple')
     })
 
-    const ssoButton = target.querySelector('button[type="button"]')!
+    const ssoButton = [...target.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('Sign in with Apple'),
+    )!
     ssoButton.dispatchEvent(new Event('click', { bubbles: true }))
 
     expect(sessionStorage.getItem('sso_homeserver')).toBe('matrix.org')
@@ -174,10 +193,12 @@ describe('LoginScreen', () => {
     mount(LoginScreen, { target })
 
     await vi.waitFor(() => {
-      expect(target.querySelector('button[type="button"]')).not.toBeNull()
+      expect(target.textContent).toContain('Sign in with SSO')
     })
 
-    const oidcButton = target.querySelector('button[type="button"]')!
+    const oidcButton = [...target.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('Sign in with SSO'),
+    )!
     oidcButton.dispatchEvent(new Event('click', { bubbles: true }))
 
     await vi.waitFor(() => {
