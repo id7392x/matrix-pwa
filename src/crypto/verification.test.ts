@@ -40,8 +40,14 @@ class FakeEmitter {
 
 class FakeVerifier extends FakeEmitter {
   verify = vi.fn(async () => {})
+  showSasCallbacks: ShowSasCallbacks | null = null
+
+  getShowSasCallbacks(): ShowSasCallbacks | null {
+    return this.showSasCallbacks
+  }
 
   emitShowSas(sas: ShowSasCallbacks): void {
+    this.showSasCallbacks = sas
     this.emit(VerifierEvent.ShowSas, sas)
   }
 
@@ -52,6 +58,7 @@ class FakeVerifier extends FakeEmitter {
 
 class FakeRequest extends FakeEmitter {
   accepting = false
+  initiatedByMe = false
   verifier: FakeVerifier | null = null
   accept = vi.fn(async () => {
     this.phase = VerificationPhase.Ready
@@ -69,8 +76,9 @@ class FakeRequest extends FakeEmitter {
     return v
   })
 
-  constructor(public phase: number) {
+  constructor(public phase: number, opts: { initiatedByMe?: boolean } = {}) {
     super()
+    if (opts.initiatedByMe) this.initiatedByMe = true
   }
 
   get otherUserId(): string {
@@ -131,15 +139,23 @@ describe('verification', () => {
   })
 
   describe('runSasVerification', () => {
-    it('accepts an incoming request and starts SAS (m.sas.v1)', async () => {
+    it('accepts an incoming request and reuses the verifier the SDK builds on the remote .start', async () => {
       const request = new FakeRequest(VerificationPhase.Requested)
+      const pending = runSasVerification(request as unknown as VerificationRequest, roomId)
 
-      await runSasVerification(request as unknown as VerificationRequest, roomId)
+      // The remote side sends `.start` after our `.ready`: the request surfaces a verifier.
+      await new Promise<void>((resolve) => setTimeout(resolve, 0))
+      const verifier = new FakeVerifier()
+      request.verifier = verifier
+      request.phase = VerificationPhase.Started
+      request.emit(VerificationRequestEvent.Change)
+
+      await pending
 
       expect(request.accept).toHaveBeenCalledTimes(1)
-      expect(request.startVerification).toHaveBeenCalledWith('m.sas.v1')
-      const phases = sessions.map((s) => s.phase)
-      expect(phases).toEqual(['emoji', 'done'])
+      // The responder must never start its own SAS (that would race the remote as a "tie").
+      expect(request.startVerification).not.toHaveBeenCalled()
+      expect(sessions.filter((s) => s.phase === 'done')).toHaveLength(1)
     })
 
     it('does not accept a request that is already started and reuses its verifier', async () => {
@@ -185,6 +201,24 @@ describe('verification', () => {
       expect(sessions.at(-1)?.phase).toBe('done')
     })
 
+    it('replays SAS callbacks already computed before the ShowSas listener attached', async () => {
+      const request = new FakeRequest(VerificationPhase.Started)
+      const verifier = new FakeVerifier()
+      verifier.showSasCallbacks = {
+        sas: { emoji: [['🦊', 'Fox'], ['🐱', 'Cat']] },
+        confirm: vi.fn(),
+        mismatch: vi.fn(),
+        cancel: vi.fn(),
+      } as unknown as ShowSasCallbacks
+      request.verifier = verifier
+
+      await runSasVerification(request as unknown as VerificationRequest, roomId)
+
+      const emojiSessions = sessions.filter((s) => s.emojis.length > 0)
+      expect(emojiSessions.at(-1)?.phase).toBe('emoji')
+      expect(emojiSessions.at(-1)?.emojis).toEqual([['🦊', 'Fox'], ['🐱', 'Cat']])
+    })
+
     it('reports a cancelled verification', async () => {
       const request = new FakeRequest(VerificationPhase.Started)
       const verifier = new FakeVerifier()
@@ -215,9 +249,16 @@ describe('verification', () => {
       crypto.emit(CryptoEvent.VerificationRequestReceived, request)
 
       await vi.waitFor(() => {
-        expect(request.startVerification).toHaveBeenCalledWith('m.sas.v1')
+        expect(request.accept).toHaveBeenCalledTimes(1)
       })
-      expect(sessions.at(-1)?.otherUserId).toBe(bob)
+      request.verifier = new FakeVerifier()
+      request.phase = VerificationPhase.Started
+      request.emit(VerificationRequestEvent.Change)
+
+      await vi.waitFor(() => {
+        expect(sessions.at(-1)?.otherUserId).toBe(bob)
+      })
+      expect(request.startVerification).not.toHaveBeenCalled()
     })
 
     it('detach removes the event listeners', () => {
@@ -244,11 +285,23 @@ describe('verification', () => {
 
   describe('beginUserVerification and trust', () => {
     it('starts a SAS verification via requestVerificationDM', async () => {
+      const request = new FakeRequest(VerificationPhase.Unsent, { initiatedByMe: true })
+      crypto.requestVerificationDM = vi.fn(async () => request)
       attachVerification(mockClient(crypto))
 
-      await beginUserVerification(bob, roomId)
+      const pending = beginUserVerification(bob, roomId)
+      await new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+      // An outgoing request must not be "accepted" by us (the SDK rejects that).
+      expect(request.accept).not.toHaveBeenCalled()
+      // The remote accepts: `.ready` arrives and the flow can start.
+      request.phase = VerificationPhase.Ready
+      request.emit(VerificationRequestEvent.Change)
+
+      await pending
 
       expect(crypto.requestVerificationDM).toHaveBeenCalledWith(bob, roomId)
+      expect(request.startVerification).toHaveBeenCalledWith('m.sas.v1')
       expect(sessions.at(-1)?.otherUserId).toBe(bob)
     })
 

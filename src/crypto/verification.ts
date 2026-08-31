@@ -118,16 +118,29 @@ export async function runSasVerification(request: VerificationRequest, roomId?: 
   try {
     emit({ otherUserId, roomId, phase: 'emoji', emojis: [] }, gen)
 
-    if (!request.accepting && (request.phase === VerificationPhase.Unsent || request.phase === VerificationPhase.Requested)) {
+    // Only the responder accepts (sends `.ready`); an outgoing request must wait for the
+    // remote `.ready` instead — the SDK's `accept()` rejects our own request.
+    if (
+      !request.initiatedByMe &&
+      !request.accepting &&
+      (request.phase === VerificationPhase.Unsent || request.phase === VerificationPhase.Requested)
+    ) {
       await request.accept()
     }
     const verifier = await getSasVerifier(request)
     if (cancelRequested || gen !== generation) return
 
-    const onShowSas = (sas: ShowSasCallbacks): void => {
+    let shownSas: ShowSasCallbacks | null = null
+    const showSas = (sas: ShowSasCallbacks): void => {
+      if (shownSas === sas) return
+      shownSas = sas
       emit({ otherUserId, roomId, phase: 'emoji', emojis: sas.sas.emoji ?? [], callbacks: sas }, gen)
     }
-    verifier.on(VerifierEvent.ShowSas, onShowSas)
+    verifier.on(VerifierEvent.ShowSas, showSas)
+    // The SDK computes SAS callbacks once and fires ShowSas a single time; if that already
+    // happened while we were waiting (e.g. a tie-lost verifier was replaced), replay it here.
+    const existing = verifier.getShowSasCallbacks()
+    if (existing) showSas(existing)
     try {
       await verifier.verify()
       emit({ otherUserId, roomId, phase: 'done', emojis: [] }, gen)
@@ -135,7 +148,7 @@ export async function runSasVerification(request: VerificationRequest, roomId?: 
       // Some SDK paths reject verify() without a user-facing step (e.g. mismatched SAS).
       emit({ otherUserId, roomId, phase: 'cancelled', emojis: [] }, gen)
     } finally {
-      verifier.off(VerifierEvent.ShowSas, onShowSas)
+      verifier.off(VerifierEvent.ShowSas, showSas)
     }
   } catch {
     // Request could not be accepted or started (e.g. already cancelled): report dead state.
@@ -145,35 +158,68 @@ export async function runSasVerification(request: VerificationRequest, roomId?: 
 
 async function getSasVerifier(request: VerificationRequest): Promise<Verifier> {
   if (request.verifier) return request.verifier
-  if (request.phase === VerificationPhase.Ready) {
-    return request.startVerification(VerificationMethod.Sas)
-  }
   if (request.phase === VerificationPhase.Cancelled || request.phase === VerificationPhase.Done) {
     throw new Error(`verification cannot start (phase ${request.phase})`)
   }
-  // The remote side may still be accepting; wait until the request settles.
-  await new Promise<void>((resolve) => {
+
+  // Responder: the remote side sends `.start` after our `.ready`; the SDK then exposes the
+  // verifier for it. Never start our own SAS here: that races the remote's `.start` (a "tie"),
+  // and if the remote `.start` lands while `accept()` is in flight, the Started transition
+  // fires before we subscribe and the flow hangs on a Change that is never coming.
+  if (!request.initiatedByMe) {
+    await waitForRequestSettlement(request, (req) => req.verifier != null || isTerminal(req))
+    if (request.verifier) return request.verifier
+    throw new Error(`verification cannot start (phase ${request.phase})`)
+  }
+
+  // Initiator: wait for the other side's `.ready`, then start the SAS flow ourselves.
+  await waitForRequestSettlement(
+    request,
+    (req) => req.verifier != null || settledPhase(req, VerificationPhase.Ready) || isTerminal(req),
+  )
+  if (request.verifier) return request.verifier
+  if (request.phase === VerificationPhase.Ready) {
+    return request.startVerification(VerificationMethod.Sas)
+  }
+  throw new Error(`verification cannot start (phase ${request.phase})`)
+}
+
+function isTerminal(request: VerificationRequest): boolean {
+  return settledPhase(request, VerificationPhase.Cancelled) || settledPhase(request, VerificationPhase.Done)
+}
+
+/**
+ * Reads `request.phase`, tolerating a mid-transition wrapper (the inner has moved but the
+ * verifier is not wrapped yet; the Change announcing it is still to come).
+ */
+function settledPhase(request: VerificationRequest, phase: VerificationPhase): boolean {
+  try {
+    return request.phase === phase
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Waits until `request` matches `settled`, resolving immediately if it already does —
+ * e.g. the remote `.start` arrived while `accept()` was in flight, so subscribing after the
+ * fact would miss the Change and the promise would never resolve.
+ */
+function waitForRequestSettlement(
+  request: VerificationRequest,
+  settled: (request: VerificationRequest) => boolean,
+): Promise<void> {
+  return new Promise<void>((resolve) => {
     const onChange = (): void => {
-      if (
-        request.phase === VerificationPhase.Ready ||
-        request.phase === VerificationPhase.Started ||
-        request.phase === VerificationPhase.Cancelled ||
-        request.phase === VerificationPhase.Done
-      ) {
+      if (settled(request)) {
         request.off(VerificationRequestEvent.Change, onChange)
         resolve()
       }
     }
     request.on(VerificationRequestEvent.Change, onChange)
+    // Sync re-check: the state may have already moved before we subscribed.
+    onChange()
   })
-  if (request.verifier) return request.verifier
-  // Re-read: control-flow narrowing from the earlier phase checks is stale
-  // after we waited for the request to transition.
-  const phase = request.phase as VerificationPhase
-  if (phase === VerificationPhase.Ready) {
-    return request.startVerification(VerificationMethod.Sas)
-  }
-  throw new Error(`verification cannot start (phase ${phase})`)
 }
 
 /** Caches the cross-signing trust level of `userId` and pushes it to the trust handler. */
