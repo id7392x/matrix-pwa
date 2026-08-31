@@ -39,7 +39,7 @@
 | 5 | E2EE Cold Start + re-decryption | `<repo-owner>` | **выполнен** (локально; см. §5) |
 | 6 | История, пагинация, retention, медиа-кэш | свободен | **следующий** |
 | 7 | Multi-tab + Lazy-sync | свободен | запланирован |
-| Дизайн-трек (Д1–Д2) | горизонтальный, не вертикальный слайс | свободен | **ревью выполнено** (см. `docs/DESIGN.md`)
+| Дизайн-трек (Д1–Д2) | горизонтальный, не вертикальный слайс | свободен | **ревью выполнено** (см. `docs/DESIGN.md`); **новый UI-таргет**: 6 макетов в stitch, порядок натягивания — `DESIGN.md` §8 (по запросу юзера) |
 
 ## 3. Общие знания (фактология, хвосты, нюансы)
 
@@ -56,6 +56,7 @@
 - **Ручная проверка dev (не автоматизируется):** реальный `/sync` требует accessToken живого аккаунта — прогон против matrix.org делается в браузере вручную (`pnpm dev`, логин с токеном). Unit-покрытие цепи sync→stores есть в `legacySync.test.ts`, `legacySyncProvider.test.ts`, `SyncOrchestrator.test.ts`, `PendingQueueService.test.ts`.
 - **Vitest-готча:** рендер-тесты Svelte требуют `resolve.conditions: ['browser']` в `vite.config.ts` — иначе `mount` из `svelte` резолвится в server-сборку (`lifecycle_function_unavailable`). Не удалять. Дополнительно: SDK `matrix-js-sdk` (ESM с directory-imports, напр. `../http-api`) в Node-резолве падает — обязателен `test.server.deps.inline: [/matrix-js-sdk/]` (Vite резолвит `.ts`/индексные импорты). Не удалять.
 - **Репо публичное** — ничего лишнего в файлы/историю (в авторских строках только GitHub noreply, без личных email).
+- **Reference-клон element-web:** `/Users/macos/Documents/OpenCode/element-web` (`--depth 1`, 118 МБ, вне workspace — вложенного репо нет). Визуальный таргет UI — **Telegram** (макеты: stitch-проект `projects/7820572232356862504`, DS «Ether UI» `assets/159a4d5e…`, dark #111/#007aff; 6 валидных экранов — см. `docs/06-TOOLS.md` §6.2; удалять экраны нельзя), а НЕ Element. element-web — только для Matrix-специфичных UX-флоу (verify/SAS, QR, UTD/recovery, key backup) и имён семантических токенов (`$accent`→`--accent-*`), шпаргалка путей — `docs/06-TOOLS.md` §3; React-код не переносится (ломает слои, `01-АРХ §1`). Правила — `docs/06-TOOLS.md`.
 
 ## 4. Дизайн-ревью (выполнено 2026-08-25)
 
