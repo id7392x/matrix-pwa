@@ -5,8 +5,8 @@
 
 ## 1. Общее состояние репозитория
 
-- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, **HEAD: `fd68626`**, **в `origin` запушено юзером**: `1c776b8` (roadmap), `282dfa1` (LICENSE AGPL-3.0), `a7b838e` (README EN). ⚠️ **2 коммита впереди `origin` (локальные, пуш по явному подтверждению):** `acf5106` (`feat(ui): verify senders from any message`) и `fd68626` (`feat(ui): verify dm partner regardless of messages`). Все коммиты подписаны SSH (GitHub: Verified). История переписана: `id7392x` вычищен из .md файлов, author/committer fields сохранены. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
-- Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` **284/284** (20 файлов), `pnpm run lint` чисто. Pre-commit хук (simple-git-hooks) прогоняется автоматически на каждом коммите.
+- Репо: `/Users/macos/Documents/OpenCode/matrix-pwa`. Ветка `main`, **HEAD: `ccc4f14`**, **в `origin` запушено юзером**: `1c776b8` (roadmap), `282dfa1` (LICENSE AGPL-3.0), `a7b838e` (README EN). ⚠️ **8 коммитов впереди `origin` (локальные, пуш по явному подтверждению):** `acf5106`, `fd68626` (UI verify), `6d2c47c`, `a61c4c1`, `493f3aa` (docs), `380f576`, `66da661`, `c5b8f54`, `ccc4f14` (UI-пуш, см. ниже). Все коммиты подписаны SSH (GitHub: Verified). История переписана: `id7392x` вычищен из .md файлов, author/committer fields сохранены. Правила коммитов — в `COMMITS.md` (читать перед каждым коммитом).
+- Гейт зелёный: `pnpm run check` 0 ошибок, `pnpm test` **302/302** (21 файл), `pnpm run lint` чисто. Pre-commit хук (simple-git-hooks) прогоняется автоматически на каждом коммите.
 - **GitHub Ruleset «Protect main»**: люди — только через PR (1 approval + статус-чек `gate` + signed commits); `<repo-owner>` — bypass на прямой push. ⚠️ Проверить вручную во вкладке Bypass: там должен быть ТОЛЬКО `<repo-owner>`.
 - **GitHub Actions** (`acd2798`): гейт `pnpm check/test/lint` на push и pull_request.
 - **Push-политика по трекам**: `<repo-owner>` — только локальные коммиты, пуш в `origin` после явного словесного подтверждения; контрибьюторы — только свои feature-ветки (подробности — `COMMITS.md`, `CONTRIBUTING.md`).
@@ -39,7 +39,7 @@
 | 5 | E2EE Cold Start + re-decryption | `<repo-owner>` | **выполнен** (локально; см. §5) |
 | 6 | История, пагинация, retention, медиа-кэш | свободен | **следующий** |
 | 7 | Multi-tab + Lazy-sync | свободен | запланирован |
-| Дизайн-трек (Д1–Д2) | горизонтальный, не вертикальный слайс | свободен | **ревью выполнено** (см. `docs/DESIGN.md`); **новый UI-таргет**: 6 макетов в stitch, порядок натягивания — `DESIGN.md` §8 (по запросу юзера) |
+| Дизайн-трек (Д1–Д2) | горизонтальный, не вертикальный слайс | свободен | **ревью выполнено** (см. `docs/DESIGN.md`); **UI-пуш идёт** по `DESIGN.md` §8: токены (380f576) → Вход (66da661) → **главный экран** (`c5b8f54`+`ccc4f14`: аватары, превью, нижняя панель) → дальше переписка |
 
 ## 3. Общие знания (фактология, хвосты, нюансы)
 
@@ -82,7 +82,15 @@
 
 ## 5. Трек `<repo-owner>` — следующий шаг: Слайс 6 — история, пагинация, retention, медиа (`docs/04-ROADMAP.md` §9)
 
-**Выполнено (сводка):** слайсы 1–5, ревью-батч (`2dd3072`–`409ea1d`), sync race fix (`ea53bf3`), e2ee echo dedup (`2ce4902`), OIDC SSO (`a8987b8`–`275b946`), Слайс 5 (5.1a–d) + UTD-backup фиксы — **запушены**. Локально ждут пуша только **2 UI-коммита верификации** (`acf5106`, `fd68626`, см. ниже).
+**Выполнено (сводка):** слайсы 1–5, ревью-батч (`2dd3072`–`409ea1d`), sync race fix (`ea53bf3`), e2ee echo dedup (`2ce4902`), OIDC SSO (`a8987b8`–`275b946`), Слайс 5 (5.1a–d) + UTD-backup фиксы, UI-пуш (см. ниже) — **запушены только слайсы 1–5 и ревью-батч**; локально ждут пуша verify-UI (`acf5106`, `fd68626`), доки и UI-пуш 380f576–ccc4f14.
+
+**UI-пуш по `DESIGN.md` §8 (2026-08-31, локально, ждёт пуша):**
+- `380f576` — токены Ether UI в `app.css` (@theme #111/#007aff/Inter, `.glass-panel` blur16+0.5px);
+- `66da661` — `LoginScreen` по макету «Вход» (glass-карта, toggle пароля, CTA 56px, role=alert; тесты на toggle);
+- `c5b8f54` — **data**: `SyncJoinedRoom` += `avatarUrl`+`lastMessage`; `toSyncJoinedRoom(room, isDirect, baseUrl)` — комнатная thumbnail `getAvatarUrl(baseUrl,112,112,'crop',false)`, для DM фолбэк на аватар партнёра (`room.getMember(dmPartner)?.getAvatarUrl(...)`); `lastMessage` = реверс-скан live-timeline (m.room.message body; `m.room.encrypted`→`'Encrypted message'`); персист в `SyncOrchestrator.upsertRoom`, `RoomModel.lastMessage`, `RoomDto.lastMessage`. SDK-нюанс: `Room.getAvatarUrl` НЕ фолбэчится на аватар члена — фолбэк явный;
+- `ccc4f14` — **главный экран по макету** `41230df5`: превью последнего сообщения под именем (`previewText` в `format.ts`: схлопывание пробелов + кап 120 симв. + «…»; unread-бейдж справа той же строкой); шапка (glass-пилюля «Edit» слева, по центру «Chats»+замок, справа check/pencil); нижняя overlay-панель: нейтральные чипы «Все/Чаты/Контакты/Папки» (no-op, `ponytail:`, слайс папок m.tag), glass-навбар [Контакты/Чаты активная синяя/Настройки] (no-op), поиск-FAB (no-op); `{#key screen.roomId}` + `animate-[chat-enter_0.22s_ease-out]` + `@keyframes chat-enter`. Поиск убран из шапки (перенос в FAB), чипы пришли на место макета.
+- **Проверка юзером:** главный экран на dev-сервере (:5174) — аватары/превью наполнятся после нового `/sync` (старые комнаты в БД получат `avatarUrl`/`lastMessage` на ближайшем цикле, `upsertRoom` пишет каждый sync).
+- Дальше по §8: **«Переписка»** `aab4de2b` (Timeline/TimelineItem/composer) → verify-модалка → заделы поиска/контактов.
 
 **Verify UX (полечено, локально, ждёт пуша):** `acf5106` — пер-сообщенческая кнопка Verify на каждом чужом сообщении (всегда); `fd68626` — DM-партнёр из состава комнаты (`Room.getJoinedMembers()` → `others` без self → единственный = `dmPartner`), персист через `RoomModel.dmPartner`/`RoomDto` (неиндексируемое поле, миграция не нужна), CTA в шапке DM показывается всегда, когда партнёр известен (независимо от `m.direct` и наличия его сообщений — `isDirect` ненадёжен, а таймлайн партнёра пуст до Слайса 6.1). Доп.: `requestVerificationDM` обёрнут в try/catch во всех трёх входах (SAS/QR-show/QR-scan) — верификация юзера без E2EE-ключей (напр. `@server:matrix.org`, welcome-бот) падает грациозно (cancelled), без uncaught rejection. Итого **284 теста**. Проверено в браузере: шапка CTA появилась в DM с Matrix.org-ботом, клик не бросает ошибок.
 
