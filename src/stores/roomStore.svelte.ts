@@ -8,6 +8,7 @@ export function toRoomDto(model: RoomModel): RoomDto {
     id: model.roomId,
     name: model.name ?? model.roomId,
     avatarUrl: model.avatarUrl,
+    lastMessage: model.lastMessage,
     unreadCount: model.unreadCount,
     highlightCount: model.highlightCount,
     lastEventTs: model.lastEventTs,

@@ -24,7 +24,21 @@ export function toSyncRawEvent(event: MatrixEvent): SyncRawEvent {
   }
 }
 
-export function toSyncJoinedRoom(room: Room, isDirect = false): SyncJoinedRoom {
+const ENCRYPTED_PREVIEW = 'Encrypted message'
+
+/** Preview of the newest message-like event in the timeline. */
+function lastMessageOf(events: MatrixEvent[]): string | undefined {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const type = events[i].getType()
+    if (type === 'm.room.encrypted') return ENCRYPTED_PREVIEW
+    if (type !== 'm.room.message') continue
+    const body = events[i].getContent().body
+    if (typeof body === 'string' && body.trim()) return body
+  }
+  return undefined
+}
+
+export function toSyncJoinedRoom(room: Room, isDirect = false, baseUrl?: string): SyncJoinedRoom {
   const timeline = room.getLiveTimeline()
   const others = room
     .getJoinedMembers()
@@ -43,6 +57,15 @@ export function toSyncJoinedRoom(room: Room, isDirect = false): SyncJoinedRoom {
     },
   }
   if (others.length === 1) joined.dmPartner = others[0]
+  if (baseUrl) {
+    joined.avatarUrl = room.getAvatarUrl(baseUrl, 112, 112, 'crop', false) ?? undefined
+    // DMs usually have no room avatar — fall back to the partner's profile picture.
+    if (!joined.avatarUrl && joined.dmPartner) {
+      const partner = room.getMember(joined.dmPartner)
+      joined.avatarUrl = partner?.getAvatarUrl(baseUrl, 112, 112, 'crop', false, false) ?? undefined
+    }
+  }
+  joined.lastMessage = lastMessageOf(timeline.getEvents())
   return joined
 }
 
@@ -91,7 +114,7 @@ export class LegacySyncProvider implements ISyncProvider {
     const leave: Record<string, unknown> = {}
     for (const room of this.client.getRooms()) {
       if (room.getMyMembership() === KnownMembership.Join) {
-        join[room.roomId] = toSyncJoinedRoom(room, directRooms.has(room.roomId))
+        join[room.roomId] = toSyncJoinedRoom(room, directRooms.has(room.roomId), this.client.baseUrl)
       } else if (room.getMyMembership() === KnownMembership.Leave) {
         leave[room.roomId] = {}
       }

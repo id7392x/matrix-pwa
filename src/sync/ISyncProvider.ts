@@ -18,6 +18,11 @@ export interface SyncRoomTimeline {
 export interface SyncJoinedRoom {
   timeline?: SyncRoomTimeline
   name?: string
+  /** Resolved avatar thumbnail URL (room avatar, falling back to the DM partner's).
+   *  Omitted when unavailable or when no baseUrl was provided. */
+  avatarUrl?: string
+  /** Preview of the newest message-like event: m.room.message body or 'Encrypted message'. */
+  lastMessage?: string
   isDirect?: boolean
   /** The single other joined member, i.e. the DM partner; undefined for groups. */
   dmPartner?: string

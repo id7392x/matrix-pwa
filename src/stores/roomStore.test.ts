@@ -33,6 +33,16 @@ describe('toRoomDto', () => {
     const dto = toRoomDto({ ...roomA, dmPartner: '@partner:example.org' })
     expect(dto.dmPartner).toBe('@partner:example.org')
   })
+
+  it('passes avatar and last message preview through to the DTO', () => {
+    const dto = toRoomDto({
+      ...roomA,
+      avatarUrl: 'https://example.org/avatar.png',
+      lastMessage: 'hello',
+    })
+    expect(dto.avatarUrl).toBe('https://example.org/avatar.png')
+    expect(dto.lastMessage).toBe('hello')
+  })
 })
 
 describe('roomStore', () => {

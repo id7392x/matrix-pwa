@@ -25,6 +25,8 @@ function sync(overrides: Partial<SyncResponse> = {}): SyncResponse {
       join: {
         [roomId]: {
           name: 'General',
+          avatarUrl: 'https://example.org/avatar.png',
+          lastMessage: 'hello',
           unread_notifications: { notification_count: 2, highlight_count: 1 },
           timeline: {
             prev_batch: 't0',
@@ -67,6 +69,9 @@ describe('SyncOrchestrator', () => {
     expect(room?.unreadCount).toBe(2)
     expect(room?.highlightCount).toBe(1)
     expect(room?.lastEventTs).toBe(1000)
+
+    expect((await db.rooms.get(`${alice}:${roomId}`))?.lastMessage).toBe('hello')
+    expect((await db.rooms.get(`${alice}:${roomId}`))?.avatarUrl).toBe('https://example.org/avatar.png')
 
     const event = await db.events.get([alice, roomId, '$1'])
     expect(event?.syncState).toBe('synced')

@@ -191,6 +191,82 @@ describe('toSyncJoinedRoom', () => {
 
     expect(toSyncJoinedRoom(room)).not.toHaveProperty('dmPartner')
   })
+
+  it('derives the last message preview from the newest message event', () => {
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    const room = makeRoom(client)
+
+    expect(toSyncJoinedRoom(room).lastMessage).toBe('hello')
+  })
+
+  it('reports an encrypted event as the last message preview', () => {
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    const room = makeRoom(client)
+    room
+      .getLiveTimeline()
+      .addEvent(
+        new MatrixEvent({
+          event_id: '$enc',
+          origin_server_ts: 2000,
+          sender: bob,
+          type: 'm.room.encrypted',
+          content: { algorithm: 'm.megolm.v1.aes-sha2', sender_key: 'k', ciphertext: 'x' },
+        }),
+        { toStartOfTimeline: false, addToState: false },
+      )
+
+    expect(toSyncJoinedRoom(room).lastMessage).toBe('Encrypted message')
+  })
+
+  it('leaves lastMessage undefined when the timeline has no message events', () => {
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    const room = new Room(roomId, client, alice)
+
+    expect(toSyncJoinedRoom(room).lastMessage).toBeUndefined()
+  })
+
+  it('resolves the room avatar to a thumbnail url', () => {
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    const room = makeRoom(client)
+    room.currentState.setStateEvents([
+      new MatrixEvent({
+        event_id: '$avatar',
+        room_id: room.roomId,
+        type: EventType.RoomAvatar,
+        state_key: '',
+        content: { url: 'mxc://example.org/room-avatar' },
+      }),
+    ])
+
+    const joined = toSyncJoinedRoom(room, false, client.baseUrl)
+
+    expect(joined.avatarUrl).toBe(
+      'https://matrix.org/_matrix/media/v3/thumbnail/example.org/room-avatar?width=112&height=112&method=crop',
+    )
+  })
+
+  it('falls back to the DM partner avatar when the room has none', () => {
+    const client = createClient({ baseUrl: 'https://matrix.org' })
+    const room = makeRoom(client)
+    room.currentState.setStateEvents([
+      new MatrixEvent({
+        event_id: `$member-${bob}`,
+        room_id: room.roomId,
+        origin_server_ts: 1,
+        sender: bob,
+        type: EventType.RoomMember,
+        state_key: bob,
+        content: { membership: 'join', avatar_url: 'mxc://example.org/bob-avatar' },
+      }),
+    ])
+
+    const joined = toSyncJoinedRoom(room, true, client.baseUrl)
+
+    expect(joined.dmPartner).toBe(bob)
+    expect(joined.avatarUrl).toBe(
+      'https://matrix.org/_matrix/media/v3/thumbnail/example.org/bob-avatar?width=112&height=112&method=crop',
+    )
+  })
 })
 
 describe('LegacySyncProvider', () => {
@@ -250,6 +326,8 @@ describe('LegacySyncProvider', () => {
     expect(sync.rooms.join[roomId]).toEqual({
       name: 'General',
       isDirect: true,
+      avatarUrl: undefined,
+      lastMessage: 'hello',
       unread_notifications: { notification_count: 2, highlight_count: 1 },
       timeline: {
         prev_batch: 't0',

@@ -27,6 +27,7 @@ export interface RoomModel {
   lastEventTs: number
   name?: string
   avatarUrl?: string
+  lastMessage?: string // превью последнего сообщения для списка комнат (не в индексах — без миграции)
   summaryDto?: string
   dmPartner?: string // единственный другой участник DM (не в индексах — без миграции)
 }
