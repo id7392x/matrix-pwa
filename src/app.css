@@ -67,11 +67,12 @@ button:active {
   transform: scale(0.96);
 }
 
-/* Session-verification widget: verified "✓" flashes, then flies out right. */
+/* Session-verification button: verified "✓" flashes, then fades out and
+   shrinks away from the header pill. */
 @keyframes session-widget-leave {
   to {
     opacity: 0;
-    transform: translateY(-50%) translateX(24px);
+    transform: scale(0.5);
   }
 }
 .session-widget-leave {

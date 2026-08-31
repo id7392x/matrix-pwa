@@ -22,6 +22,10 @@ function verifiedButton(target: HTMLElement): HTMLElement | null {
   return target.querySelector('[aria-label="Session verified"]')
 }
 
+function newChatButton(target: HTMLElement): HTMLElement | null {
+  return target.querySelector('[aria-label="New chat"]')
+}
+
 describe('RoomList session-verification widget', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -44,6 +48,22 @@ describe('RoomList session-verification widget', () => {
     await tick()
     expect(warnButton(target)).toBeNull()
     expect(verifiedButton(target)).toBeNull()
+  })
+
+  it('keeps the new-chat button visible even when the session is verified', async () => {
+    cryptoStore.deviceVerified = true
+    const target = mountRoomList()
+    await tick()
+    expect(newChatButton(target)).not.toBeNull()
+    expect(warnButton(target)).toBeNull()
+  })
+
+  it('shows the new-chat button next to the verification warning', async () => {
+    cryptoStore.deviceVerified = false
+    const target = mountRoomList()
+    await tick()
+    expect(warnButton(target)).not.toBeNull()
+    expect(newChatButton(target)).not.toBeNull()
   })
 
   it('shows the warning pill while the current device is unverified', async () => {

@@ -74,27 +74,39 @@
       </svg>
       Chats
     </h2>
-    <div>
+    <div class="flex items-center gap-0.5 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] p-1 backdrop-blur-[16px]">
       {#if widgetVisible && (unverified || flash || hide)}
-        <div class="absolute right-4 top-1/2 -translate-y-1/2">
-          <button
-            class="flex size-12 items-center justify-center rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] backdrop-blur-[16px] {hide ? 'session-widget-leave' : ''}"
-            aria-label={flash ? 'Session verified' : 'Verify this session'}
-            onclick={pressWidget}
-            onanimationend={finishWidget}
-          >
-            {#if flash}
-            <svg viewBox="0 0 24 24" class="size-6 text-[#34c759]" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <button
+          class="flex size-7 items-center justify-center rounded-full {hide ? 'session-widget-leave' : ''}"
+          aria-label={flash ? 'Session verified' : 'Verify this session'}
+          onclick={pressWidget}
+          onanimationend={finishWidget}
+        >
+          {#if flash}
+            <svg viewBox="0 0 24 24" class="size-4 text-[#34c759]" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           {:else}
-            <svg viewBox="0 0 24 24" class="size-6 text-amber-300" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <svg viewBox="0 0 24 24" class="size-4 text-amber-300" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <path d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           {/if}
-          </button>
-        </div>
+        </button>
       {/if}
+      <!-- ponytail: new-chat is wired in the rooms slice. -->
+      <button
+        class="flex size-7 items-center justify-center rounded-full text-[var(--text-primary)]/90 transition-colors hover:bg-white/10"
+        aria-label="New chat"
+        onclick={() => { /* wired in the rooms slice */ }}
+      >
+        <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path
+            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
     </div>
   </header>
 
