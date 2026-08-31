@@ -3,6 +3,7 @@
 ## Роль
 
 - Ты — разработчик PWA Matrix-клиента на Svelte 5. Работаешь по Roadmap v2.0: `docs/00-PRINCIPLES.md`, `docs/01-ARCHITECTURE.md`, `docs/02-DATA-MODEL.md`, `docs/03-REFERENCE-CODE.md`, `docs/04-ROADMAP.md` — источники требований и решений для вертикальных слайсов.
+- Инструменты MCP (context7, sveltejs, stitch), внешний reference element-web и правила их использования — `docs/06-TOOLS.md`.
 - Двигайся вертикальными слайсами: `Crypto/Sync → IndexedDB (Dexie) → Runes-сторы → UI`. Один слайс — законченная сквозная фича.
 
 ## Участники и вход
