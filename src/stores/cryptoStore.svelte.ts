@@ -1,7 +1,9 @@
 import type { SecretStorageKeyDescription } from 'matrix-js-sdk/lib/secret-storage'
 
 import {
+  adoptCrossSigning,
   autoRestoreBackup,
+  getDeviceVerified,
   getSecurityState,
   installRecoveryKey,
   setPasswordPrompt,
@@ -18,6 +20,8 @@ class CryptoStoreManager {
   recoveryKeyInMemory = $state(false)
   bannerDismissed = $state(false)
   statusLoaded = $state(false)
+  /** Whether the current device (session) is cross-signed by the account keys. */
+  deviceVerified = $state(false)
 
   setupVisible = $state(false)
   setupBusy = $state(false)
@@ -43,10 +47,11 @@ class CryptoStoreManager {
   }
 
   private async refreshStatus(): Promise<void> {
-    const state = await getSecurityState()
+    const [state, deviceVerified] = await Promise.all([getSecurityState(), getDeviceVerified()])
     this.crossSigningReady = state.crossSigningReady
     this.secretStorageReady = state.secretStorageReady
     this.recoveryKeyInMemory = state.recoveryKeyInMemory
+    this.deviceVerified = deviceVerified
     this.statusLoaded = true
   }
 
@@ -131,6 +136,7 @@ class CryptoStoreManager {
       this.pendingUnlock = null
       resolve(match)
       await this.refreshStatus()
+      await this.adoptSession().catch(() => undefined)
       await this.autoRestore().catch(() => undefined)
       return
     }
@@ -141,8 +147,22 @@ class CryptoStoreManager {
     }
     this.unlockError = ''
     this.unlockVisible = false
+    await this.adoptSession()
     await this.refreshStatus()
     await this.autoRestore().catch(() => undefined)
+  }
+
+  /**
+   * Signs the current device with the recovered cross-signing keys so the
+   * session flips to verified. Tolerates API failures — the session stays
+   * unverified and the widget allows retrying.
+   */
+  private async adoptSession(): Promise<void> {
+    try {
+      await adoptCrossSigning()
+    } catch {
+      // surfaced via deviceVerified on the next status refresh
+    }
   }
 
   /** Provider callback for the SDK: opens the unlock dialog and waits for the user. */
@@ -182,6 +202,7 @@ class CryptoStoreManager {
     this.crossSigningReady = false
     this.secretStorageReady = false
     this.recoveryKeyInMemory = false
+    this.deviceVerified = false
     this.bannerDismissed = false
     this.statusLoaded = false
     this.setupVisible = false

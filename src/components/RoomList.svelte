@@ -1,12 +1,55 @@
 <script lang="ts">
   import { roomStore } from '$stores/roomStore.svelte'
   import { uiStore } from '$stores/uiStore.svelte'
+  import { cryptoStore } from '$stores/cryptoStore.svelte'
 
   import SecurityBanner from './crypto/SecurityBanner.svelte'
   import RoomListItem from './RoomListItem.svelte'
 
   // ponytail: neutral filter chips; wired to room folders (m.tag) in the folders slice.
   const chips = ['Все', 'Чаты', 'Контакты', 'Папки']
+
+  // Session-verification widget: only appears while the current device is not
+  // cross-signed (fresh login on a new device). Unlock → adopt cross-signing →
+  // "✓" flash → fly out to the right and unmount. SAS-from-second-device path
+  // is planned in docs/05-UI-E2EE.md §7.4.
+  const unverified = $derived(
+    cryptoStore.statusLoaded && cryptoStore.secretStorageReady && !cryptoStore.deviceVerified,
+  )
+  let widgetVisible = $state(true)
+  let flash = $state(false)
+  let hide = $state(false)
+  // Plain var on purpose: reading it inside $effect would make the write self-invalidate the effect.
+  let prevUnverified = false
+
+  $effect(() => {
+    if (unverified === prevUnverified) return
+    prevUnverified = unverified
+    if (unverified) {
+      widgetVisible = true
+      flash = false
+      hide = false
+      return
+    }
+    if (!widgetVisible) return
+    flash = true
+    const t = setTimeout(() => {
+      hide = true
+    }, 450)
+    return () => clearTimeout(t)
+  })
+
+  function pressWidget(): void {
+    if (!flash) cryptoStore.openUnlock()
+  }
+
+  function finishWidget(): void {
+    if (hide) {
+      widgetVisible = false
+      flash = false
+      hide = false
+    }
+  }
 </script>
 
 <div class="relative flex h-full w-full flex-col overflow-hidden">
@@ -31,29 +74,27 @@
       </svg>
       Chats
     </h2>
-    <div class="flex items-center gap-1 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] p-1 backdrop-blur-[16px]">
-      <button
-        class="flex size-8 items-center justify-center rounded-full text-[var(--text-primary)]/90 transition-colors hover:bg-white/10"
-        aria-label="Mark all read"
-        onclick={() => { /* wired in the rooms slice */ }}
-      >
-        <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </button>
-      <button
-        class="flex size-8 items-center justify-center rounded-full text-[var(--text-primary)]/90 transition-colors hover:bg-white/10"
-        aria-label="New message"
-        onclick={() => { /* wired in the rooms slice */ }}
-      >
-        <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path
-            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </button>
+    <div>
+      {#if widgetVisible && (unverified || flash || hide)}
+        <div class="absolute right-4 top-1/2 -translate-y-1/2">
+          <button
+            class="flex size-12 items-center justify-center rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] backdrop-blur-[16px] {hide ? 'session-widget-leave' : ''}"
+            aria-label={flash ? 'Session verified' : 'Verify this session'}
+            onclick={pressWidget}
+            onanimationend={finishWidget}
+          >
+            {#if flash}
+            <svg viewBox="0 0 24 24" class="size-6 text-[#34c759]" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          {:else}
+            <svg viewBox="0 0 24 24" class="size-6 text-amber-300" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          {/if}
+          </button>
+        </div>
+      {/if}
     </div>
   </header>
 
@@ -80,7 +121,7 @@
     class="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 bg-gradient-to-t from-[var(--background)] from-70% via-[var(--background)]/90 to-transparent pb-6 pt-4"
   >
     <div
-      class="no-scrollbar pointer-events-auto flex w-[calc(100%-2rem)] items-center gap-2 overflow-x-auto rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3 py-1.5 backdrop-blur-[16px]"
+      class="no-scrollbar pointer-events-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-2 overflow-x-auto rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3 py-1.5 backdrop-blur-[16px]"
     >
       {#each chips as chip, i (chip)}
         <!-- ponytail: static until the folders slice lands. -->
@@ -97,7 +138,7 @@
     </div>
     <div class="pointer-events-auto flex items-center justify-center gap-2">
       <nav
-        class="flex items-center gap-1 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-2 py-1.5 shadow-xl backdrop-blur-[16px]"
+        class="flex h-12 items-center gap-1.5 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-1.5 shadow-xl backdrop-blur-[16px]"
         aria-label="Main navigation"
       >
         <!-- ponytail: contacts/settings screens are later slices. -->
@@ -106,17 +147,18 @@
           aria-label="Contacts"
           onclick={() => { /* wired in the contacts slice */ }}
         >
-          <svg viewBox="0 0 20 20" class="size-6" fill="currentColor" aria-hidden="true">
+          <svg viewBox="0 0 20 20" class="size-5" fill="currentColor" aria-hidden="true">
             <path clip-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" fill-rule="evenodd"></path>
           </svg>
         </button>
+        <!-- ponytail: active tab is a static choke-point; real tabs arrive with the contacts/folders slices. -->
         <button
-          class="flex size-12 items-center justify-center rounded-full bg-[var(--accent-color)] text-white shadow-lg shadow-[var(--accent-color)]/30"
+          class="flex size-10 items-center justify-center rounded-full bg-[var(--accent-color)] text-white shadow-lg shadow-[var(--accent-color)]/30"
           aria-label="Chats"
           aria-current="page"
           onclick={() => uiStore.openRooms()}
         >
-          <svg viewBox="0 0 20 20" class="size-6" fill="currentColor" aria-hidden="true">
+          <svg viewBox="0 0 20 20" class="size-5" fill="currentColor" aria-hidden="true">
             <path
               clip-rule="evenodd"
               d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z"
@@ -129,7 +171,7 @@
           aria-label="Settings"
           onclick={() => { /* wired in the settings slice */ }}
         >
-          <svg viewBox="0 0 24 24" class="size-6" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path
               d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
               stroke-linecap="round"

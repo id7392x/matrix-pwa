@@ -4,7 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SecretStorageKeyDescription } from 'matrix-js-sdk/lib/secret-storage'
 
 import {
+  adoptCrossSigning,
   autoRestoreBackup,
+  getDeviceVerified,
   getSecurityState,
   installRecoveryKey,
   setPasswordPrompt,
@@ -16,7 +18,9 @@ import { db } from '$storage/db'
 import { cryptoStore } from '$stores/cryptoStore.svelte'
 
 vi.mock('$crypto/security', () => ({
+  adoptCrossSigning: vi.fn(),
   autoRestoreBackup: vi.fn(),
+  getDeviceVerified: vi.fn(),
   getSecurityState: vi.fn(),
   installRecoveryKey: vi.fn(),
   setupRecovery: vi.fn(),
@@ -50,6 +54,7 @@ describe('cryptoStore', () => {
       secretStorageReady: false,
       recoveryKeyInMemory: false,
     })
+    vi.mocked(getDeviceVerified).mockResolvedValue(false)
     cryptoStore.reset()
   })
 
@@ -70,6 +75,7 @@ describe('cryptoStore', () => {
       secretStorageReady: true,
       recoveryKeyInMemory: true,
     })
+    vi.mocked(getDeviceVerified).mockResolvedValue(true)
 
     await cryptoStore.init(alice)
 
@@ -77,7 +83,29 @@ describe('cryptoStore', () => {
     expect(cryptoStore.crossSigningReady).toBe(true)
     expect(cryptoStore.secretStorageReady).toBe(true)
     expect(cryptoStore.recoveryKeyInMemory).toBe(true)
+    expect(cryptoStore.deviceVerified).toBe(true)
     expect(cryptoStore.setupNeeded).toBe(false)
+  })
+
+  it('tracks an unverified device after refresh', async () => {
+    vi.mocked(getSecurityState).mockResolvedValue({
+      crossSigningReady: true,
+      secretStorageReady: true,
+      recoveryKeyInMemory: false,
+    })
+    vi.mocked(getDeviceVerified).mockResolvedValue(false)
+
+    await cryptoStore.init(alice)
+
+    expect(cryptoStore.deviceVerified).toBe(false)
+  })
+
+  it('reset clears the device verification flag', async () => {
+    vi.mocked(getDeviceVerified).mockResolvedValue(true)
+    await cryptoStore.init(alice)
+    expect(cryptoStore.deviceVerified).toBe(true)
+    cryptoStore.reset()
+    expect(cryptoStore.deviceVerified).toBe(false)
   })
 
   it('showBanner is true when setup is needed and not dismissed', async () => {
@@ -200,6 +228,18 @@ describe('cryptoStore', () => {
 
     expect(installRecoveryKey).toHaveBeenCalledWith('recoverytext')
     expect(cryptoStore.unlockVisible).toBe(false)
+  })
+
+  it('a proactive unlock adopts cross-signing keys so the session becomes verified', async () => {
+    await cryptoStore.init(alice)
+    vi.mocked(getDeviceVerified).mockResolvedValue(false)
+    cryptoStore.openUnlock()
+    vi.mocked(installRecoveryKey).mockResolvedValue(true)
+
+    await cryptoStore.submitUnlockKey('recoverytext')
+
+    expect(adoptCrossSigning).toHaveBeenCalled()
+    expect(vi.mocked(getDeviceVerified).mock.calls.length).toBeGreaterThan(0)
   })
 
   it('re-runs autoRestore after a pending unlock succeeds', async () => {

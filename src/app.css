@@ -58,4 +58,24 @@
   }
 }
 
+/* Tactile press feedback for every tappable control (no per-button classes). */
+button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+button:active {
+  transform: scale(0.96);
+}
+
+/* Session-verification widget: verified "✓" flashes, then flies out right. */
+@keyframes session-widget-leave {
+  to {
+    opacity: 0;
+    transform: translateY(-50%) translateX(24px);
+  }
+}
+.session-widget-leave {
+  animation: session-widget-leave 0.3s ease-out forwards;
+}
+
 /* ponytail: Inter via Google Fonts CDN; self-host the woff2 once there is a build step for it. */

@@ -128,6 +128,30 @@ function makeUploadDeviceSigningKeys(): UIAuthCallback<void> {
   }
 }
 
+/** Whether this device is cross-signed, i.e. the current session is verified. */
+export async function getDeviceVerified(): Promise<boolean> {
+  if (!crypto || !client) return false
+  try {
+    const status = await crypto.getDeviceVerificationStatus(client.getUserId() ?? '', client.getDeviceId() ?? '')
+    return status?.crossSigningVerified ?? false
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Adopts the account's existing cross-signing keys from 4S so this device gets
+ * signed by its own self-signing key (session verification after unlock).
+ */
+export async function adoptCrossSigning(): Promise<void> {
+  if (!crypto) return
+  try {
+    await crypto.bootstrapCrossSigning({ authUploadDeviceSigningKeys: makeUploadDeviceSigningKeys() })
+  } catch {
+    // Keys missing / server hiccup: verification surfaces on the next status refresh.
+  }
+}
+
 /** Caches a well-formed recovery key for later use, without knowing its key id yet. */
 export async function installRecoveryKey(recoveryKey: string): Promise<boolean> {
   try {

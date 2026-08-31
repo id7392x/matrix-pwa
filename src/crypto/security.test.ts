@@ -6,10 +6,12 @@ import type { AuthDict } from 'matrix-js-sdk/lib/interactive-auth'
 import type { SecretStorageKeyDescription } from 'matrix-js-sdk/lib/secret-storage'
 
 import {
+  adoptCrossSigning,
   attachSecurity,
   autoRestoreBackup,
   detachSecurity,
   findMatchingKeyId,
+  getDeviceVerified,
   getSecurityState,
   installRecoveryKey,
   makeCryptoCallbacks,
@@ -86,6 +88,7 @@ function mockCrypto(): CryptoApi {
     isKeyBackupTrusted: vi.fn().mockResolvedValue({ trusted: true, matchesDecryptionKey: true }),
     loadSessionBackupPrivateKeyFromSecretStorage: vi.fn().mockResolvedValue(undefined),
     restoreKeyBackup: vi.fn().mockResolvedValue({ total: 3, imported: 3 }),
+    getDeviceVerificationStatus: vi.fn().mockResolvedValue({ crossSigningVerified: true }),
   } as unknown as CryptoApi
 }
 
@@ -95,6 +98,7 @@ function mockClient(crypto: CryptoApi): MatrixClient {
   return {
     getCrypto: vi.fn().mockReturnValue(crypto),
     getUserId: () => alice,
+    getDeviceId: () => 'DEV',
   } as unknown as MatrixClient
 }
 
@@ -132,6 +136,53 @@ describe('security', () => {
       const state = await getSecurityState()
       expect(state.crossSigningReady).toBe(false)
       expect(state.secretStorageReady).toBe(false)
+    })
+  })
+
+  describe('getDeviceVerified', () => {
+    it('reports false when crypto is not attached', async () => {
+      expect(await getDeviceVerified()).toBe(false)
+    })
+
+    it('mirrors the cross-signing state of the current device', async () => {
+      const crypto = mockCrypto()
+      attachSecurity(mockClient(crypto))
+      expect(await getDeviceVerified()).toBe(true)
+    })
+
+    it('reports false when the device status is unavailable', async () => {
+      const crypto = mockCrypto()
+      crypto.getDeviceVerificationStatus = vi.fn().mockResolvedValue(null)
+      attachSecurity(mockClient(crypto))
+      expect(await getDeviceVerified()).toBe(false)
+    })
+
+    it('reports false when the SDK call fails', async () => {
+      const crypto = mockCrypto()
+      crypto.getDeviceVerificationStatus = vi.fn().mockRejectedValue(new Error('crypto unavailable'))
+      attachSecurity(mockClient(crypto))
+      expect(await getDeviceVerified()).toBe(false)
+    })
+  })
+
+  describe('adoptCrossSigning', () => {
+    it('bootstraps cross-signing from the recovered keys with UIA-capable upload', async () => {
+      const crypto = mockCrypto()
+      attachSecurity(mockClient(crypto))
+
+      await adoptCrossSigning()
+
+      expect(crypto.bootstrapCrossSigning).toHaveBeenCalledWith({
+        authUploadDeviceSigningKeys: expect.any(Function),
+      })
+    })
+
+    it('tolerates a failed bootstrap (no crypto / keys missing)', async () => {
+      const crypto = mockCrypto()
+      crypto.bootstrapCrossSigning = vi.fn().mockRejectedValue(new Error('no keys'))
+      attachSecurity(mockClient(crypto))
+
+      await expect(adoptCrossSigning()).resolves.toBeUndefined()
     })
   })
 
